@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Phone, Shield, X } from './Icons';
+import { authenticatedHeaders } from '../utils/api';
 
 export default function EmergencyContactModal({ user, onComplete, onSkip }) {
   const [phone, setPhone] = useState('');
@@ -11,11 +12,12 @@ export default function EmergencyContactModal({ user, onComplete, onSkip }) {
 
     setLoading(true);
     try {
-      await fetch('/api/auth/emergency-contact', {
+      const response = await fetch('/api/auth/emergency-contact', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: user.id, phone: phone.trim() })
+        headers: await authenticatedHeaders(),
+        body: JSON.stringify({ phone: phone.trim() })
       });
+      if (!response.ok) throw new Error('Could not save emergency contact.');
       onComplete(phone.trim());
     } catch (err) {
       console.error('Save contact error:', err);

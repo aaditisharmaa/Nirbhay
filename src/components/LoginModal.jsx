@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { signInWithGoogle } from '../utils/firebase';
+import { signInWithGoogle, getAuthHeaders } from '../utils/firebase';
 import { GuardianShieldIcon, Lock } from './Icons';
 
 export default function LoginModal({ onLoginSuccess }) {
@@ -14,18 +14,16 @@ export default function LoginModal({ onLoginSuccess }) {
       
       let loggedUser = user;
       try {
-        // Sync user with backend (non-blocking)
+        // Sync user with backend using the verified Firebase session.
         const res = await fetch('/api/auth/sync', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(user)
+          headers: { 'Content-Type': 'application/json', ...(await getAuthHeaders()) }
         });
-        if (res.ok) {
-          const data = await res.json();
-          if (data && data.user) loggedUser = data.user;
-        }
+        if (!res.ok) throw new Error('Could not verify your sign-in with the safety service.');
+        const data = await res.json();
+        if (data?.user) loggedUser = data.user;
       } catch (syncErr) {
-        console.warn('Backend sync warning (continuing with local user):', syncErr);
+        throw syncErr;
       }
       
       localStorage.setItem('nirbhay_user', JSON.stringify(loggedUser));

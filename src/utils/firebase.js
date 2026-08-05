@@ -37,7 +37,8 @@ export async function signInWithGoogle() {
         id: user.uid,
         email: user.email,
         displayName: user.displayName || user.email.split('@')[0],
-        photoURL: user.photoURL
+        photoURL: user.photoURL,
+        token: await user.getIdToken()
       };
     } catch (err) {
       console.error('Real Firebase Google Auth error:', err);
@@ -45,14 +46,21 @@ export async function signInWithGoogle() {
     }
   }
 
-  // If Firebase config environment variables are not set, attempt dynamic config or fallback
-  console.warn('Firebase config missing VITE_FIREBASE_API_KEY. Using authentic user session mode.');
-  return {
-    id: `google_user_${Math.floor(100000 + Math.random() * 900000)}`,
-    email: 'guardian.community@gmail.com',
-    displayName: 'Verified Community Guardian',
-    photoURL: 'https://lh3.googleusercontent.com/a/default-user'
-  };
+  if (import.meta.env.DEV) {
+    console.warn('Firebase is not configured; using development-only session.');
+    return { id: `dev_user_${crypto.randomUUID()}`, email: 'dev@nirbhay.local', displayName: 'Development User', isDevelopmentUser: true };
+  }
+
+  throw new Error('Google sign-in is not configured. Please contact the app administrator.');
+}
+
+export async function getAuthHeaders() {
+  if (auth?.currentUser) return { Authorization: `Bearer ${await auth.currentUser.getIdToken()}` };
+  try {
+    const savedUser = JSON.parse(localStorage.getItem('nirbhay_user') || '{}');
+    if (import.meta.env.DEV && savedUser.isDevelopmentUser) return { 'X-Development-User': savedUser.id };
+  } catch (_) {}
+  return {};
 }
 
 export async function signOutUser() {

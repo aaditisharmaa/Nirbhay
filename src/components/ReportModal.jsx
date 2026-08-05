@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import L from 'leaflet';
 import { Lock, MapPin, AlertTriangle, X, Search, Compass } from './Icons';
+import { authenticatedHeaders } from '../utils/api';
 
 export default function ReportModal({ userLocation, user, onClose, onReportSubmitted }) {
   const initialLat = userLocation.lat || 28.6328;
@@ -158,7 +159,7 @@ export default function ReportModal({ userLocation, user, onClose, onReportSubmi
 
       const res = await fetch('/api/reports', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: await authenticatedHeaders(),
         body: JSON.stringify(payload)
       });
 

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Phone, Lock, LogOut, Shield, X, User } from './Icons';
 import { signOutUser } from '../utils/firebase';
+import { authenticatedHeaders } from '../utils/api';
 
 export default function SettingsModal({ user, onUpdateUser, onSignOut, onClose }) {
   const [phone, setPhone] = useState(user?.emergency_contact || '');
@@ -15,11 +16,12 @@ export default function SettingsModal({ user, onUpdateUser, onSignOut, onClose }
     setSavedSuccess(false);
 
     try {
-      await fetch('/api/auth/emergency-contact', {
+      const response = await fetch('/api/auth/emergency-contact', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: user.id, phone: phone.trim() })
+        headers: await authenticatedHeaders(),
+        body: JSON.stringify({ phone: phone.trim() })
       });
+      if (!response.ok) throw new Error('Could not update emergency contact.');
 
       const updatedUser = { ...user, emergency_contact: phone.trim() };
       localStorage.setItem('nirbhay_user', JSON.stringify(updatedUser));

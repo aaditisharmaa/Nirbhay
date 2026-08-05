@@ -6,7 +6,7 @@ dotenv.config();
 const { TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_PHONE_NUMBER } = process.env;
 
 /**
- * Trigger context-aware SOS alert message via Twilio (or smart simulator)
+ * Trigger an SOS SMS through Twilio. A missing or failing provider is never presented as a sent alert.
  */
 export async function sendSosAlert({ userId, lat, lng, zoneRiskInfo, emergencyContact, customMessageBody }) {
   let messageBody = customMessageBody;
@@ -21,7 +21,7 @@ export async function sendSosAlert({ userId, lat, lng, zoneRiskInfo, emergencyCo
   }
 
   let smsSent = false;
-  let providerResponse = 'Simulated dispatch';
+  let providerResponse = 'SMS provider is not configured';
 
   if (TWILIO_ACCOUNT_SID && TWILIO_AUTH_TOKEN && TWILIO_PHONE_NUMBER && emergencyContact) {
     try {
@@ -56,7 +56,7 @@ export async function sendSosAlert({ userId, lat, lng, zoneRiskInfo, emergencyCo
     }
   } else {
     console.log(`📱 [SIMULATED SMS DISPATCH] To: ${emergencyContact || 'Default Emergency Contact'} | Message: "${messageBody}"`);
-    smsSent = true;
+    // Do not mark an alert as delivered unless the provider accepted it.
   }
 
   // Log SOS event in database
@@ -67,10 +67,10 @@ export async function sendSosAlert({ userId, lat, lng, zoneRiskInfo, emergencyCo
   `).run(alertId, userId || 'anon_user', lat, lng, zoneRiskInfo ? zoneRiskInfo.level : 'Unknown', emergencyContact || 'Default Contact', messageBody);
 
   return {
-    success: true,
+    success: smsSent,
     smsSent,
     providerResponse,
     messageBody,
-    simulatedPoliceAlert: 'Alerting nearest authorities... (Simulated Demo State)'
+    simulatedPoliceAlert: null
   };
 }

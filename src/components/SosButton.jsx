@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { AlertTriangle, Shield, CheckCircle, Phone, X, Radio } from './Icons';
+import { authenticatedHeaders } from '../utils/api';
 
 export default function SosButton({ userLocation, user, onPromptEmergencyContact }) {
   const [activeState, setActiveState] = useState('idle'); // 'idle' | 'alerting' | 'confirmed'
@@ -19,14 +20,13 @@ export default function SosButton({ userLocation, user, onPromptEmergencyContact
 
     try {
       const payload = {
-        userId: user ? user.id : 'anon_user',
         lat: userLocation.lat || 28.6328,
         lng: userLocation.lng || 77.2195
       };
 
       const res = await fetch('/api/sos', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: await authenticatedHeaders(),
         body: JSON.stringify(payload)
       });
 
@@ -84,25 +84,21 @@ export default function SosButton({ userLocation, user, onPromptEmergencyContact
                   <CheckCircle className="w-8 h-8" />
                 </div>
 
-                <h3 className="text-xl font-extrabold text-slate-900">SOS Emergency Dispatched!</h3>
+                <h3 className="text-xl font-extrabold text-slate-900">SOS Submitted to SMS Service</h3>
 
                 <div className="bg-slate-50 border border-slate-200 p-3 rounded-2xl text-left space-y-2">
                   <p className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
                     <Phone className="w-4 h-4 text-indigo-600" />
-                    <span>SMS Sent to Emergency Contact</span>
+                    <span>Emergency contact alert accepted</span>
                   </p>
                   <p className="text-[11px] text-slate-600 leading-relaxed font-mono bg-white p-2 rounded-xl border border-slate-100">
                     "{sosDetails?.messageBody}"
                   </p>
                 </div>
 
-                {/* Simulated Police Alert Banner */}
                 <div className="bg-amber-50 border border-amber-200 p-3 rounded-2xl flex items-center gap-2 text-left">
                   <Shield className="w-4 h-4 text-amber-600 flex-shrink-0" />
-                  <div>
-                    <p className="text-xs font-bold text-amber-900">Police Telemetry Alerted</p>
-                    <p className="text-[11px] text-amber-700">{sosDetails?.simulatedPoliceAlert}</p>
-                  </div>
+                  <p className="text-[11px] text-amber-800">Nirbhay does not contact police automatically. If you are in immediate danger, call your local emergency number now.</p>
                 </div>
 
                 <button

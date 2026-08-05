@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { ThumbsUp, Shield, X, AlertTriangle, Info, Lock, CheckCircle } from './Icons';
+import { authenticatedHeaders } from '../utils/api';
 
 export default function ZoneDetailModal({ zone, user, onClose, onReportConfirmed }) {
   const [details, setDetails] = useState(zone);
@@ -38,8 +39,7 @@ export default function ZoneDetailModal({ zone, user, onClose, onReportConfirmed
     try {
       const res = await fetch(`/api/reports/${reportId}/confirm`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: user.id })
+        headers: await authenticatedHeaders()
       });
 
       const data = await res.json();

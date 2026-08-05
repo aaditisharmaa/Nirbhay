@@ -1,6 +1,8 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
@@ -16,11 +18,16 @@ const __dirname = path.dirname(__filename);
 const app = express();
 
 // Middleware
-app.use(cors());
-app.use(express.json());
+app.disable('x-powered-by');
+app.use(helmet({ contentSecurityPolicy: false, crossOriginResourcePolicy: false }));
+app.use(cors({ origin: process.env.CLIENT_ORIGIN ? process.env.CLIENT_ORIGIN.split(',') : process.env.NODE_ENV !== 'production' }));
+app.use(express.json({ limit: '20kb' }));
+app.use('/api', rateLimit({ windowMs: 15 * 60 * 1000, limit: 300, standardHeaders: 'draft-7', legacyHeaders: false }));
 
 // Seed initial Delhi safety data if needed
-seedDatabase();
+if (process.env.SEED_DATA === 'true' || (process.env.NODE_ENV !== 'production' && process.env.SEED_DATA !== 'false')) {
+  seedDatabase();
+}
 
 // API Routes
 app.use('/api/auth', authRoutes);

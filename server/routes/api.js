@@ -1,4 +1,5 @@
 import express from 'express';
+import crypto from 'crypto';
 import db from '../db.js';
 import { computeAllGridScores, getCellId, getPointRiskStatus } from '../services/riskEngine.js';
 import { syncOsmData } from '../services/osmService.js';
@@ -13,6 +14,8 @@ import {
 } from '../services/aiService.js';
 import { getScoredRoutes } from '../services/routerService.js';
 import { sendSosAlert } from '../services/smsService.js';
+import { requireAuthenticatedUser } from '../middleware/auth.js';
+import { parseCoordinates, validateReport } from '../middleware/validation.js';
 
 const router = express.Router();
 
@@ -186,25 +189,28 @@ router.post('/nearby-summary', async (req, res) => {
 
 // GET /api/live-status - Get live risk level for user's lat/lng
 router.get('/live-status', (req, res) => {
-  const { lat, lng } = req.query;
-  if (!lat || !lng) {
+  const coordinates = parseCoordinates(req.query.lat, req.query.lng);
+  if (!coordinates) {
     return res.status(400).json({ error: 'lat and lng required' });
   }
 
   const zones = computeAllGridScores(cachedOsmFeatures);
-  const status = getPointRiskStatus(parseFloat(lat), parseFloat(lng), zones);
+  const status = getPointRiskStatus(coordinates.lat, coordinates.lng, zones);
 
   res.json({ success: true, status });
 });
 
 // POST /api/reports - Submit a new report with AI classification
-router.post('/reports', async (req, res) => {
+router.post('/reports', requireAuthenticatedUser, async (req, res) => {
   try {
-    const { userId, lat, lng, category: inputCategory, severity: inputSeverity, description } = req.body;
+    const { lat, lng, category: inputCategory, severity: inputSeverity, description } = req.body;
+    const coordinates = parseCoordinates(lat, lng);
+    const validationError = validateReport({ category: inputCategory, severity: inputSeverity, description });
 
-    if (!lat || !lng) {
+    if (!coordinates) {
       return res.status(400).json({ error: 'Location coordinates required' });
     }
+    if (validationError) return res.status(400).json({ error: validationError });
 
     let finalCategory = inputCategory;
     let finalSeverity = inputSeverity;
@@ -215,17 +221,17 @@ router.post('/reports', async (req, res) => {
       if (!finalSeverity) finalSeverity = aiResult.severity;
     }
 
-    const reportId = `rep_${Date.now()}`;
-    const zoneId = getCellId(parseFloat(lat), parseFloat(lng));
+    const reportId = `rep_${crypto.randomUUID()}`;
+    const zoneId = getCellId(coordinates.lat, coordinates.lng);
 
     db.prepare(`
       INSERT INTO reports (id, user_id, lat, lng, category, severity, description, zone_id)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       reportId,
-      userId || 'anon_user',
-      parseFloat(lat),
-      parseFloat(lng),
+      req.user.uid,
+      coordinates.lat,
+      coordinates.lng,
       finalCategory || 'Other',
       finalSeverity || 'medium',
       description || '',
@@ -250,16 +256,14 @@ router.post('/reports', async (req, res) => {
 });
 
 // POST /api/reports/:id/confirm - Upvote a report (1 per user)
-router.post('/reports/:id/confirm', (req, res) => {
+router.post('/reports/:id/confirm', requireAuthenticatedUser, (req, res) => {
   try {
     const { id } = req.params;
-    const { userId } = req.body;
+    const userId = req.user.uid;
+    const report = db.prepare('SELECT * FROM reports WHERE id = ?').get(id);
+    if (!report) return res.status(404).json({ error: 'Report not found.' });
 
-    if (!userId) {
-      return res.status(400).json({ error: 'User must be signed in to confirm a report.' });
-    }
-
-    const upvoteId = `up_${Date.now()}`;
+    const upvoteId = `up_${crypto.randomUUID()}`;
     try {
       db.prepare('INSERT INTO upvotes (id, report_id, user_id) VALUES (?, ?, ?)').run(upvoteId, id, userId);
       db.prepare('UPDATE reports SET confirm_count = confirm_count + 1 WHERE id = ?').run(id);
@@ -283,12 +287,15 @@ router.post('/reports/:id/confirm', (req, res) => {
 router.post('/routes', async (req, res) => {
   try {
     const { origin, destination, travelMode = 'walking' } = req.body;
-    if (!origin || !destination) {
+    const validOrigin = origin && parseCoordinates(origin.lat, origin.lng);
+    const validDestination = destination && parseCoordinates(destination.lat, destination.lng);
+    if (!validOrigin || !validDestination) {
       return res.status(400).json({ error: 'Origin and destination coordinates required' });
     }
+    if (!['walking', 'vehicle'].includes(travelMode)) return res.status(400).json({ error: 'Invalid travel mode.' });
 
     const zones = computeAllGridScores(cachedOsmFeatures);
-    const routeResult = await getScoredRoutes(origin, destination, zones, travelMode);
+    const routeResult = await getScoredRoutes(validOrigin, validDestination, zones, travelMode);
 
     if (!routeResult.success) {
       return res.status(404).json(routeResult);
@@ -321,25 +328,30 @@ router.post('/proximity-ai', async (req, res) => {
 });
 
 // Feature 4: POST /api/sos - Trigger emergency SOS alert with contextual AI message
-router.post('/sos', async (req, res) => {
+router.post('/sos', requireAuthenticatedUser, async (req, res) => {
   try {
-    const { userId, lat, lng } = req.body;
-    if (!lat || !lng) {
+    const { lat, lng } = req.body;
+    const coordinates = parseCoordinates(lat, lng);
+    if (!coordinates) {
       return res.status(400).json({ error: 'Live location coordinates required' });
     }
+    const userId = req.user.uid;
 
     const user = db.prepare('SELECT emergency_contact FROM users WHERE id = ?').get(userId);
     const emergencyContact = user ? user.emergency_contact : null;
+    if (!emergencyContact) {
+      return res.status(400).json({ error: 'Add an emergency contact before sending an SOS.' });
+    }
 
     const zones = computeAllGridScores(cachedOsmFeatures);
-    const pointStatus = getPointRiskStatus(parseFloat(lat), parseFloat(lng), zones);
-    const mapUrl = `https://maps.google.com/?q=${lat},${lng}`;
+    const pointStatus = getPointRiskStatus(coordinates.lat, coordinates.lng, zones);
+    const mapUrl = `https://maps.google.com/?q=${coordinates.lat},${coordinates.lng}`;
 
     let locationName = 'Delhi Region';
-    if (lat > 28.63) locationName = 'Connaught Place Area';
-    else if (lat < 28.56 && lng < 77.21) locationName = 'Hauz Khas Village';
-    else if (lat < 28.58 && lng > 77.23) locationName = 'Lajpat Nagar';
-    else if (lat < 28.53) locationName = 'Mehrauli Stretch';
+    if (coordinates.lat > 28.63) locationName = 'Connaught Place Area';
+    else if (coordinates.lat < 28.56 && coordinates.lng < 77.21) locationName = 'Hauz Khas Village';
+    else if (coordinates.lat < 28.58 && coordinates.lng > 77.23) locationName = 'Lajpat Nagar';
+    else if (coordinates.lat < 28.53) locationName = 'Mehrauli Stretch';
 
     const topFactor = pointStatus.zone ? Object.keys(pointStatus.zone.categoryCounts || {})[0] : 'Safety Hazard';
     const customMessageBody = await generateContextualSosAi({
@@ -352,17 +364,17 @@ router.post('/sos', async (req, res) => {
 
     const sosResult = await sendSosAlert({
       userId,
-      lat: parseFloat(lat),
-      lng: parseFloat(lng),
+      lat: coordinates.lat,
+      lng: coordinates.lng,
       zoneRiskInfo: pointStatus.zone,
       emergencyContact,
       customMessageBody
     });
 
-    res.json({
-      success: true,
-      ...sosResult
-    });
+    if (!sosResult.smsSent) {
+      return res.status(503).json({ success: false, error: 'SOS was logged, but the SMS provider did not accept the alert. Call local emergency services now.', ...sosResult });
+    }
+    res.json({ success: true, ...sosResult });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
