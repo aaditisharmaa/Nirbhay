@@ -3,7 +3,7 @@ services:
     name: nirbhay-safety-app
     env: node
     plan: free
-    buildCommand: npm install && npx vite build
+    buildCommand: npm ci --include=dev && npx vite build
     startCommand: node server/index.js
     envVars:
       - key: PORT
