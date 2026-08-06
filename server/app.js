@@ -10,6 +10,9 @@ import authRoutes from './routes/auth.js';
 import apiRoutes from './routes/api.js';
 import { seedDatabase } from './seed.js';
 
+// Vite uses .env.local for local client configuration. Load it here as well so
+// local Firebase Admin credentials can verify sign-ins on the API server.
+dotenv.config({ path: '.env.local' });
 dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
