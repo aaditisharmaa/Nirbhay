@@ -22,6 +22,20 @@ const router = express.Router();
 // Cache spatial features in memory
 let cachedOsmFeatures = { streetlights: [], policeStations: [], isolatedWays: [] };
 
+// Public map data must not expose a reporter's free-text description or identity.
+function toPublicZone(zone) {
+  return {
+    ...zone,
+    reports: zone.reports.map(({ id, category, severity, confirm_count, created_at }) => ({
+      id,
+      category,
+      severity,
+      confirm_count,
+      created_at
+    }))
+  };
+}
+
 // Initialize OSM spatial features on startup
 syncOsmData().then(features => {
   cachedOsmFeatures = features;
@@ -43,7 +57,7 @@ router.get('/zones', (req, res) => {
     res.json({
       success: true,
       totalZones: zones.length,
-      zones,
+      zones: zones.map(toPublicZone),
       heatmapPoints
     });
   } catch (err) {
@@ -66,8 +80,8 @@ router.get('/zone-explain/:id', async (req, res) => {
     // Compute AI Model Confidence % locally (30% to 95% scale based on data volume)
     const reportCount = targetZone.reports.length;
     const upvoteCount = targetZone.reports.reduce((acc, r) => acc + (r.confirm_count || 0), 0);
-    const lightBonus = targetZone.signals.streetlightsCount > 0 ? 10 : 0;
-    const policeBonus = targetZone.signals.nearestPoliceDistKm < 2.0 ? 10 : 0;
+    const lightBonus = targetZone.streetlightsCount > 0 ? 10 : 0;
+    const policeBonus = targetZone.nearestPoliceDistKm < 2.0 ? 10 : 0;
     
     const confidencePercent = Math.min(95, Math.max(30, 30 + (reportCount * 12) + (upvoteCount * 5) + lightBonus + policeBonus));
 
@@ -77,7 +91,7 @@ router.get('/zone-explain/:id', async (req, res) => {
     res.json({
       success: true,
       zone: {
-        ...targetZone,
+        ...toPublicZone(targetZone),
         confidencePercent,
         explanation: aiDetails.explanation,
         contributing_factors: aiDetails.contributing_factors
@@ -130,7 +144,7 @@ router.get('/alerts', (req, res) => {
         id: r.id,
         category: r.category,
         severity: r.severity,
-        description: r.description || `${r.category} reported near ${locationName}`,
+      description: `${r.category} reported near ${locationName}`,
         locationName,
         lat: r.lat,
         lng: r.lng,
@@ -163,7 +177,7 @@ router.get('/anomalies', async (req, res) => {
 
         const aiSummary = await generateAnomalySummary({ ...z, locationName });
         return {
-          ...z,
+          ...toPublicZone(z),
           locationName,
           aiSummary
         };
@@ -214,9 +228,10 @@ router.post('/reports', requireAuthenticatedUser, async (req, res) => {
 
     let finalCategory = inputCategory;
     let finalSeverity = inputSeverity;
+    let aiResult = null;
 
     if (!finalCategory || !finalSeverity || (description && description.trim().length > 5)) {
-      const aiResult = await classifyReportText(description);
+      aiResult = await classifyReportText(description);
       if (!finalCategory || finalCategory === 'Other') finalCategory = aiResult.category;
       if (!finalSeverity) finalSeverity = aiResult.severity;
     }
@@ -225,8 +240,8 @@ router.post('/reports', requireAuthenticatedUser, async (req, res) => {
     const zoneId = getCellId(coordinates.lat, coordinates.lng);
 
     db.prepare(`
-      INSERT INTO reports (id, user_id, lat, lng, category, severity, description, zone_id)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO reports (id, user_id, lat, lng, category, severity, description, zone_id, is_likely_spam)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       reportId,
       req.user.uid,
@@ -235,7 +250,8 @@ router.post('/reports', requireAuthenticatedUser, async (req, res) => {
       finalCategory || 'Other',
       finalSeverity || 'medium',
       description || '',
-      zoneId
+      zoneId,
+      aiResult?.is_likely_spam ? 1 : 0
     );
 
     const updatedZones = computeAllGridScores(cachedOsmFeatures);

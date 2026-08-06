@@ -12,7 +12,7 @@ export async function sendSosAlert({ userId, lat, lng, zoneRiskInfo, emergencyCo
   let messageBody = customMessageBody;
 
   if (!messageBody) {
-    if (zoneRiskInfo && zoneRiskInfo.level === 'High') {
+    if (zoneRiskInfo && zoneRiskInfo.riskLevel === 'High') {
       const topFactors = Object.keys(zoneRiskInfo.categoryCounts || {}).join(', ') || 'poor lighting and past incidents';
       messageBody = `🚨 NIRBHAY EMERGENCY ALERT: Your contact needs immediate assistance! Location: https://maps.google.com/?q=${lat},${lng}. Alerted in KNOWN HIGH-RISK ZONE (${zoneRiskInfo.score}/100 Risk). Factors: ${topFactors}. Please reach out immediately!`;
     } else {
@@ -64,7 +64,7 @@ export async function sendSosAlert({ userId, lat, lng, zoneRiskInfo, emergencyCo
   db.prepare(`
     INSERT INTO sos_alerts (id, user_id, lat, lng, risk_level, recipient_phone, message_content)
     VALUES (?, ?, ?, ?, ?, ?, ?)
-  `).run(alertId, userId || 'anon_user', lat, lng, zoneRiskInfo ? zoneRiskInfo.level : 'Unknown', emergencyContact || 'Default Contact', messageBody);
+  `).run(alertId, userId || 'anon_user', lat, lng, zoneRiskInfo ? zoneRiskInfo.riskLevel : 'Unknown', emergencyContact || 'Default Contact', messageBody);
 
   return {
     success: smsSent,

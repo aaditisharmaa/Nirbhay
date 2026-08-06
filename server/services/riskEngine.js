@@ -199,6 +199,11 @@ export function computeAllGridScores(osmFeatures = { streetlights: [], policeSta
       streetlightsCount: streetlightsInCell,
       nearestPoliceDistKm: parseFloat(minPoliceDistKm.toFixed(2)),
       hasIsolatedWay,
+      signals: {
+        streetlightsCount: streetlightsInCell,
+        nearestPoliceDistKm: parseFloat(minPoliceDistKm.toFixed(2)),
+        isIsolated: hasIsolatedWay
+      },
       categoryCounts,
       locationName: locationName || 'Safety Risk Area',
       reports: cell.reports

@@ -3,3 +3,8 @@ node_modules
 dist
 .env
 npm-debug.log*
+
+.vercel
+.env*
+data/
+server/nirbhay.db

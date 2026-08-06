@@ -2,7 +2,7 @@ services:
   - type: web
     name: nirbhay-safety-app
     env: node
-    plan: free
+    plan: starter
     buildCommand: npm ci --include=dev && npx vite build
     startCommand: node server/index.js
     envVars:
@@ -10,6 +10,8 @@ services:
         value: 10000
       - key: NODE_ENV
         value: production
+      - key: DATABASE_PATH
+        value: /var/data/nirbhay.db
       - key: SEED_DATA
         value: "false"
       - key: CLAUDE_API_KEY
@@ -24,3 +26,7 @@ services:
         sync: false
       - key: CLIENT_ORIGIN
         sync: false
+    disk:
+      name: nirbhay-data
+      mountPath: /var/data
+      sizeGB: 1

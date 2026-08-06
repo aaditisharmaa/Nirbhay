@@ -19,12 +19,18 @@ export default function RoutePanel({ userLocation, onRouteCalculated, onClose })
       let startCoords = { lat: userLocation.lat || 28.6328, lng: userLocation.lng || 77.2195 };
       let destCoords = { lat: 28.5528, lng: 77.2038 }; // Hauz Khas Village
 
+      if (startQuery && startQuery !== 'Current Location') {
+        const startRes = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(startQuery + ', Delhi')}`);
+        const startData = await startRes.json();
+        if (!startData?.length) throw new Error('Start location not found.');
+        startCoords = { lat: parseFloat(startData[0].lat), lng: parseFloat(startData[0].lon) };
+      }
+
       if (destQuery && destQuery !== 'Hauz Khas Village') {
         const geoRes = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(destQuery + ', Delhi')}`);
         const geoData = await geoRes.json();
-        if (geoData && geoData.length > 0) {
-          destCoords = { lat: parseFloat(geoData[0].lat), lng: parseFloat(geoData[0].lon) };
-        }
+        if (!geoData?.length) throw new Error('Destination not found.');
+        destCoords = { lat: parseFloat(geoData[0].lat), lng: parseFloat(geoData[0].lon) };
       }
 
       const res = await fetch('/api/routes', {

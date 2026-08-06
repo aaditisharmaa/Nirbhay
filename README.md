@@ -16,6 +16,8 @@ For local visual development without Firebase, set `ALLOW_DEVELOPMENT_AUTH=true`
 - Configure Firebase web credentials and `FIREBASE_SERVICE_ACCOUNT_JSON`; the API verifies Firebase ID tokens before accepting reports, confirmations, contact changes, or SOS requests.
 - Configure Twilio credentials. If Twilio is missing or rejects a request, Nirbhay does not claim that an SOS SMS was sent.
 - Set `CLIENT_ORIGIN` to the deployed frontend URL and leave `SEED_DATA=false` to avoid publishing demo reports.
+- Set `DATABASE_PATH` to a durable mounted volume. SQLite on serverless `/tmp` storage is intentionally rejected in production because it loses data between invocations.
+- Deploy the full application on a service with a durable disk, such as the included Render configuration. Vercel serverless is not supported while the app uses SQLite.
 - Risk scores are community-informed signals, not a guarantee of personal safety or an emergency-service dispatch system.
 
 ## Emergency guidance

@@ -1,4 +1,5 @@
 import path from 'path';
+import fs from 'fs';
 import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -8,9 +9,15 @@ let db = null;
 
 try {
   const Database = (await import('better-sqlite3')).default;
-  // Use /tmp/nirbhay.db if running on Vercel serverless environment
-  const isVercel = process.env.VERCEL === '1' || process.env.AWS_LAMBDA_FUNCTION_NAME;
-  const dbPath = isVercel ? '/tmp/nirbhay.db' : path.join(__dirname, 'nirbhay.db');
+  // SQLite must live on a durable volume in production. Serverless /tmp storage
+  // is intentionally not used because it silently loses safety data on cold starts.
+  if (process.env.NODE_ENV === 'production' && !process.env.DATABASE_PATH) {
+    throw new Error('DATABASE_PATH must point to durable storage in production.');
+  }
+  const dbPath = process.env.DATABASE_PATH
+    ? path.resolve(process.env.DATABASE_PATH)
+    : path.join(__dirname, '../data/nirbhay.db');
+  fs.mkdirSync(path.dirname(dbPath), { recursive: true });
 
   db = new Database(dbPath);
   try {
@@ -36,6 +43,7 @@ try {
       description TEXT,
       zone_id TEXT,
       confirm_count INTEGER DEFAULT 0,
+      is_likely_spam INTEGER DEFAULT 0,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
 
@@ -68,9 +76,16 @@ try {
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
   `);
+  // Existing databases need this additive migration.
+  try {
+    db.exec('ALTER TABLE reports ADD COLUMN is_likely_spam INTEGER DEFAULT 0');
+  } catch (error) {
+    if (!String(error.message).includes('duplicate column name')) throw error;
+  }
   console.log('⚡ SQLite Database initialized successfully at:', dbPath);
 
 } catch (err) {
+  if (process.env.NODE_ENV === 'production') throw err;
   console.warn('⚠️ SQLite native module unavailable, using in-memory JS fallback store:', err.message);
 
   // Resilient In-Memory DB Fallback
@@ -96,14 +111,20 @@ try {
             u.emergency_contact = phone;
             memoryStore.users.set(id, u);
           } else if (sqlLower.includes('insert into reports')) {
-            const [id, user_id, lat, lng, category, severity, description, zone_id, confirm_count = 0, created_at = new Date().toISOString()] = args;
-            memoryStore.reports.set(id, { id, user_id, lat, lng, category, severity, description, zone_id, confirm_count, created_at });
+            const [id, user_id, lat, lng, category, severity, description, zone_id] = args;
+            const hasConfirmCount = sqlLower.includes('confirm_count');
+            const hasSpamFlag = sqlLower.includes('is_likely_spam');
+            const confirm_count = hasConfirmCount ? args[8] : 0;
+            const is_likely_spam = hasSpamFlag ? args[hasConfirmCount ? 9 : 8] : 0;
+            const created_at = hasConfirmCount ? args[hasSpamFlag ? 10 : 9] : new Date().toISOString();
+            memoryStore.reports.set(id, { id, user_id, lat, lng, category, severity, description, zone_id, confirm_count, is_likely_spam, created_at });
           } else if (sqlLower.includes('update reports set confirm_count')) {
             const [id] = args;
             const r = memoryStore.reports.get(id);
             if (r) r.confirm_count = (r.confirm_count || 0) + 1;
           } else if (sqlLower.includes('insert into upvotes')) {
             const [id, report_id, user_id] = args;
+            if (memoryStore.upvotes.has(`${report_id}_${user_id}`)) throw new Error('UNIQUE constraint failed');
             memoryStore.upvotes.set(`${report_id}_${user_id}`, { id, report_id, user_id });
           } else if (sqlLower.includes('insert into sos_alerts')) {
             const [id, user_id, lat, lng, risk_level, recipient_phone, message_content] = args;
