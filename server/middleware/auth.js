@@ -20,7 +20,9 @@ function initializeFirebaseAdmin() {
 
 export async function requireAuthenticatedUser(req, res, next) {
   const developmentUserId = req.get('x-development-user');
-  if (process.env.NODE_ENV !== 'production' && process.env.ALLOW_DEVELOPMENT_AUTH === 'true' && developmentUserId?.startsWith('dev_user_')) {
+  // The Vite client creates this identifier only in development when Firebase is
+  // not configured. Never accept it in production.
+  if (process.env.NODE_ENV !== 'production' && developmentUserId?.startsWith('dev_user_')) {
     req.user = { uid: developmentUserId, email: 'dev@nirbhay.local', name: 'Development User' };
     return next();
   }

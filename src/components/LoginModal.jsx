@@ -30,7 +30,7 @@ export default function LoginModal({ onLoginSuccess }) {
       onLoginSuccess(loggedUser);
     } catch (err) {
       console.error('Sign in error:', err);
-      setError('Could not sign in. Please try again.');
+      setError(err.message || 'Could not sign in. Please try again.');
     } finally {
       setLoading(false);
     }

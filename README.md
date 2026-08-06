@@ -9,7 +9,7 @@ Nirbhay is a community-informed women’s safety map. It supports anonymous publ
 3. Run `npm run dev`.
 4. Open `http://localhost:3000`.
 
-For local visual development without Firebase, set `ALLOW_DEVELOPMENT_AUTH=true`. This is intentionally rejected in production.
+When Firebase is not configured locally, the development server uses a local-only session automatically. This path is intentionally rejected in production.
 
 ## Production safety requirements
 
