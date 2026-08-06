@@ -1,11 +1,21 @@
 import admin from 'firebase-admin';
+import fs from 'fs';
+import path from 'path';
 
 let initialized = false;
 
 function initializeFirebaseAdmin() {
   if (initialized) return true;
 
-  const serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
+  let serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
+  if (!serviceAccount && process.env.FIREBASE_SERVICE_ACCOUNT_PATH) {
+    try {
+      serviceAccount = fs.readFileSync(path.resolve(process.env.FIREBASE_SERVICE_ACCOUNT_PATH), 'utf8');
+    } catch (error) {
+      console.error('Firebase service-account file could not be read:', error.message);
+      return false;
+    }
+  }
   if (!serviceAccount) return false;
 
   try {
