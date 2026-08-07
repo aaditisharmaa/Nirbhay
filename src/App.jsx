@@ -339,6 +339,9 @@ export default function App() {
             userLocation={userLocation}
             user={user}
             onSOSTriggered={() => setToastMessage('🚨 SOS alert dispatched to your emergency contact!')}
+            onThreatDetected={(label) => {
+              setToastMessage(`🎙 Guardian Mode detected a threat: ${label}. Check your surroundings!`);
+            }}
           />
 
           {/* Counter Stats Footer */}

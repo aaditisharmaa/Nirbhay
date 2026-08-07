@@ -4,8 +4,9 @@ import LiveLocationShare from './LiveLocationShare';
 import FakeIncomingCall from './FakeIncomingCall';
 import PanicAlarm from './PanicAlarm';
 import CommunityAlertButton from './CommunityAlertButton';
+import GuardianMode from './GuardianMode';
 
-export default function SafetyToolsPanel({ userLocation, user, onSOSTriggered }) {
+export default function SafetyToolsPanel({ userLocation, user, onSOSTriggered, onThreatDetected }) {
   const [open, setOpen] = useState(false);
 
   return (
@@ -57,6 +58,17 @@ export default function SafetyToolsPanel({ userLocation, user, onSOSTriggered })
                 <p className="text-xs text-rose-900 font-bold leading-relaxed">
                   🚨 <strong>Emergency Tools:</strong> Use these features when you feel unsafe or need immediate help.
                 </p>
+              </div>
+
+              {/* Tool 0: Guardian Mode — AI audio threat detection */}
+              <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl shadow-sm">
+                <div className="mb-3">
+                  <h3 className="text-sm font-extrabold text-slate-900 mb-1">🎙 Guardian Mode</h3>
+                  <p className="text-xs text-slate-600 leading-relaxed">
+                    Listens via your microphone for screams, crashes and distress keywords. Auto-triggers an alert when a threat is detected.
+                  </p>
+                </div>
+                <GuardianMode onThreatDetected={onThreatDetected} />
               </div>
 
               {/* Tool 1: Share Location */}
