@@ -1,6 +1,12 @@
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
+import dotenv from 'dotenv';
+
+// Env vars must be loaded before any other module reads process.env.
+// ES module imports are hoisted, so db.js may run before app.js calls dotenv.config().
+dotenv.config({ path: '.env.local' });
+dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
