@@ -22,7 +22,12 @@ import {
   Radio,
   Clock,
   ChevronUp,
-  ChevronDown
+  ChevronDown,
+  Menu,
+  Bell,
+  Sliders,
+  Gauge,
+  Target
 } from 'lucide-react';
 
 export {
@@ -48,7 +53,12 @@ export {
   Radio,
   Clock,
   ChevronUp,
-  ChevronDown
+  ChevronDown,
+  Menu,
+  Bell,
+  Sliders,
+  Gauge,
+  Target
 };
 
 // Custom Guardian Shield SVG Logo Icon
