@@ -3,9 +3,48 @@ import L from 'leaflet';
 import 'leaflet.heat';
 import { Plus, Compass } from './Icons';
 
-// Teardrop SVG pin
-function pinSvg(fill, glow, size = 32) {
+// Category → emoji shown inside the pin (matches CATEGORY_ICONS in seed.js)
+const CATEGORY_ICONS = {
+  'Poor Lighting':      '🔦',
+  'Harassment':         '⚠️',
+  'Stalking':           '👁',
+  'Deserted Area':      '🏚',
+  'Theft & Snatching':  '🎒',
+  'Eve Teasing':        '🚫',
+  'Unsafe Transport':   '🚌',
+  'Infrastructure':     '🕳',
+};
+
+// Category → accent colour override (pin body colour based on category type)
+const CATEGORY_COLORS = {
+  'Poor Lighting':      { fill: '#7c3aed', glow: '#a78bfa' }, // purple — lighting
+  'Harassment':         { fill: '#f43f5e', glow: '#ec4899' }, // rose — harassment
+  'Stalking':           { fill: '#dc2626', glow: '#f87171' }, // red — stalking
+  'Deserted Area':      { fill: '#6b7280', glow: '#9ca3af' }, // grey — deserted
+  'Theft & Snatching':  { fill: '#d97706', glow: '#fbbf24' }, // amber — theft
+  'Eve Teasing':        { fill: '#be185d', glow: '#f472b6' }, // pink — eve teasing
+  'Unsafe Transport':   { fill: '#0369a1', glow: '#38bdf8' }, // blue — transport
+  'Infrastructure':     { fill: '#374151', glow: '#6b7280' }, // dark grey — infra
+};
+
+// Teardrop SVG pin with emoji icon inside
+function pinSvg(fill, glow, size = 32, icon = '') {
   const id = fill.replace('#', '');
+  const fontSize = Math.round(size * 0.38);
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${Math.round(size * 1.4)}" viewBox="0 0 40 56">
+    <defs>
+      <filter id="gf${id}" x="-60%" y="-60%" width="220%" height="220%">
+        <feGaussianBlur stdDeviation="3.5" result="blur"/>
+        <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+      </filter>
+    </defs>
+    <path d="M20 2 C10.6 2 3 9.6 3 19 C3 30 20 54 20 54 C20 54 37 30 37 19 C37 9.6 29.4 2 20 2Z"
+      fill="${fill}" stroke="rgba(255,255,255,0.85)" stroke-width="1.5"
+      filter="url(#gf${id})"/>
+    <circle cx="20" cy="19" r="10" fill="rgba(255,255,255,0.92)"/>
+    ${icon ? `<text x="20" y="23" text-anchor="middle" font-size="${fontSize}" font-family="serif">${icon}</text>` : ''}
+  </svg>`;
+}
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${Math.round(size * 1.4)}" viewBox="0 0 40 56">
     <defs>
       <filter id="gf${id}" x="-60%" y="-60%" width="220%" height="220%">
@@ -195,9 +234,51 @@ export default function MapView({
       const isMod       = zone.score > 35;
       const reportCount = zone.reportCount || 0;
 
-      const fill = isHigh ? '#f43f5e' : isMod ? '#f59e0b' : '#06b6d4';
-      const glow = isHigh ? '#ec4899' : isMod ? '#fbbf24' : '#67e8f9';
-      const pSize = isHigh ? 34 : isMod ? 28 : 22;
+      // Dominant category drives colour and icon
+      const dominantCategory = zone.categoryCounts
+        ? Object.entries(zone.categoryCounts).sort((a, b) => b[1] - a[1])[0]?.[0]
+        : null;
+      const catColor = dominantCategory && CATEGORY_COLORS[dominantCategory]
+        ? CATEGORY_COLORS[dominantCategory]
+        : { fill: isHigh ? '#f43f5e' : isMod ? '#f59e0b' : '#06b6d4',
+            glow: isHigh ? '#ec4899' : isMod ? '#fbbf24' : '#67e8f9' };
+      const catIcon = dominantCategory ? (CATEGORY_ICONS[dominantCategory] || '⚠️') : '⚠️';
+      const pSize = isHigh ? 38 : isMod ? 30 : 24;
+
+      // ── Night-mode dim-area indicator ──────────────────────────────────────
+      // If it's nighttime AND the zone has low/no streetlights, show a
+      // semi-transparent dark moon overlay ring around the pin to signal danger
+      const isNight     = zone.signals?.isDaytime === false;
+      const dimLighting = (zone.signals?.streetlightsCount ?? 0) < 2;
+      const showNightWarning = isNight && dimLighting;
+
+      if (showNightWarning) {
+        const nr = Math.round(pSize * 1.8);
+        const nightIcon = L.divIcon({
+          className: '',
+          html: `<div style="
+            position:relative;width:${nr*2}px;height:${nr*2}px;
+            display:flex;align-items:center;justify-content:center;
+            pointer-events:none;">
+            <div style="
+              width:${nr*2}px;height:${nr*2}px;border-radius:50%;
+              background:radial-gradient(circle,rgba(30,0,60,0.22) 0%,rgba(88,28,220,0.12) 50%,transparent 70%);
+              border:1.5px dashed rgba(167,139,250,0.55);
+              animation:hotspotPulse 3s ease-out infinite;
+            "></div>
+            <div style="
+              position:absolute;top:-6px;right:-4px;
+              font-size:14px;line-height:1;
+              filter:drop-shadow(0 0 4px rgba(167,139,250,0.9));
+            ">🌙</div>
+          </div>`,
+          iconSize: [nr * 2, nr * 2],
+          iconAnchor: [nr, nr]
+        });
+        L.marker([zone.lat, zone.lng], { icon: nightIcon, interactive: false })
+          .addTo(glowGroupRef.current);
+      }
+      // ──────────────────────────────────────────────────────────────────────
 
       // Hotspot glow for high-risk or 3+ reports
       if (isHigh || reportCount >= 3) {
@@ -212,14 +293,14 @@ export default function MapView({
           .addTo(glowGroupRef.current);
       }
 
-      // Pin
+      // Selection ring
       const selRing = isSelected
         ? `<div style="position:absolute;top:-5px;left:-5px;width:${pSize+10}px;height:${Math.round(pSize*1.4)+10}px;border-radius:50% 50% 40% 40%/55% 55% 45% 45%;border:2.5px solid rgba(255,255,255,0.9);pointer-events:none;box-shadow:0 0 10px rgba(255,255,255,0.6);"></div>`
         : '';
 
       const pinIcon = L.divIcon({
         className: '',
-        html: `<div style="position:relative;display:inline-block;">${selRing}${pinSvg(fill, glow, pSize)}</div>`,
+        html: `<div style="position:relative;display:inline-block;">${selRing}${pinSvg(catColor.fill, catColor.glow, pSize, catIcon)}</div>`,
         iconSize: [pSize, Math.round(pSize * 1.4)],
         iconAnchor: [pSize / 2, Math.round(pSize * 1.4)]
       });
@@ -252,18 +333,23 @@ export default function MapView({
     <div className="relative w-full h-full">
       <div ref={mapRef} className="w-full h-full" />
 
-      {/* Severity legend — dark pill for readability over satellite */}
-      <div className="absolute top-20 left-1/2 -translate-x-1/2 z-20 flex items-center gap-4 px-4 py-1.5 rounded-full bg-slate-900/75 backdrop-blur-sm border border-white/15 shadow text-xs font-semibold text-white/90 pointer-events-none">
-        <span className="font-bold text-white/60">Severity:</span>
-        <span className="flex items-center gap-1.5">
-          <span className="w-2.5 h-2.5 rounded-full inline-block" style={{background:'#f43f5e',boxShadow:'0 0 5px #f43f5e'}}/>High
-        </span>
-        <span className="flex items-center gap-1.5">
-          <span className="w-2.5 h-2.5 rounded-full inline-block" style={{background:'#f59e0b',boxShadow:'0 0 5px #f59e0b'}}/>Medium
-        </span>
-        <span className="flex items-center gap-1.5">
-          <span className="w-2.5 h-2.5 rounded-full inline-block" style={{background:'#06b6d4',boxShadow:'0 0 5px #06b6d4'}}/>Low
-        </span>
+      {/* Category legend */}
+      <div className="absolute top-20 left-1/2 -translate-x-1/2 z-20 flex items-center gap-3 px-4 py-1.5 rounded-full bg-slate-900/75 backdrop-blur-sm border border-white/15 shadow text-xs font-semibold text-white/90 pointer-events-none flex-wrap justify-center max-w-sm">
+        <span className="font-bold text-white/50 text-[10px]">Hazards:</span>
+        {[
+          { icon:'🔦', label:'Lighting', color:'#7c3aed' },
+          { icon:'⚠️', label:'Harassment', color:'#f43f5e' },
+          { icon:'🎒', label:'Theft', color:'#d97706' },
+          { icon:'👁', label:'Stalking', color:'#dc2626' },
+          { icon:'🚫', label:'Eve Teasing', color:'#be185d' },
+          { icon:'🏚', label:'Deserted', color:'#6b7280' },
+          { icon:'🌙', label:'Dark at Night', color:'#7c3aed' },
+        ].map(({ icon, label, color }) => (
+          <span key={label} className="flex items-center gap-1">
+            <span>{icon}</span>
+            <span className="text-[10px]" style={{ color }}>{label}</span>
+          </span>
+        ))}
       </div>
 
       {/* Recenter */}
