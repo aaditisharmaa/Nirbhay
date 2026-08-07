@@ -5,14 +5,14 @@ import { Plus, Compass } from './Icons';
 
 // Category → emoji shown inside the pin (matches CATEGORY_ICONS in seed.js)
 const CATEGORY_ICONS = {
-  'Poor Lighting':      '🔦',
-  'Harassment':         '⚠️',
-  'Stalking':           '👁',
-  'Deserted Area':      '🏚',
-  'Theft & Snatching':  '🎒',
-  'Eve Teasing':        '🚫',
-  'Unsafe Transport':   '🚌',
-  'Infrastructure':     '🕳',
+  'Poor Lighting':      '\uD83D\uDD26', // 🔦
+  'Harassment':         '!',
+  'Stalking':           '\uD83D\uDC41', // 👁
+  'Deserted Area':      '\uD83C\uDFDA', // 🏚
+  'Theft & Snatching':  '\uD83C\uDF92', // 🎒
+  'Eve Teasing':        '\u2715',       // ✕
+  'Unsafe Transport':   '\uD83D\uDE8C', // 🚌
+  'Infrastructure':     '\u26A0',       // ⚠ (single codepoint, no variation selector)
 };
 
 // Category → accent colour override (pin body colour based on category type)
@@ -216,7 +216,8 @@ export default function MapView({
 
     // Zone markers
     zones.forEach(zone => {
-      const isSelected  = selectedZone?.cellId === zone.cellId;
+      try {
+        const isSelected  = selectedZone?.cellId === zone.cellId;
       const isHigh      = zone.score > 65;
       const isMod       = zone.score > 35;
       const reportCount = zone.reportCount || 0;
@@ -295,6 +296,9 @@ export default function MapView({
       L.marker([zone.lat, zone.lng], { icon: pinIcon })
         .on('click', () => onSelectZone(zone))
         .addTo(markersGroupRef.current);
+      } catch (e) {
+        console.warn('Marker render error for zone', zone.cellId, e.message);
+      }
     });
 
   }, [zones, selectedZone, userLocation]);
