@@ -15,14 +15,13 @@ let db = null;
 
 try {
   const Database = (await import('better-sqlite3')).default;
-  // SQLite must live on a durable volume in production. Serverless /tmp storage
-  // is intentionally not used because it silently loses safety data on cold starts.
-  if (process.env.NODE_ENV === 'production' && !process.env.DATABASE_PATH) {
-    throw new Error('DATABASE_PATH must point to durable storage in production.');
-  }
+  // In production, prefer DATABASE_PATH env var (set via Render dashboard or render.yaml).
+  // Fall back to the Render persistent disk default mount path if not explicitly set.
   const dbPath = process.env.DATABASE_PATH
     ? path.resolve(process.env.DATABASE_PATH)
-    : path.join(__dirname, '../data/nirbhay.db');
+    : process.env.NODE_ENV === 'production'
+      ? '/var/data/nirbhay.db'
+      : path.join(__dirname, '../data/nirbhay.db');
   fs.mkdirSync(path.dirname(dbPath), { recursive: true });
 
   db = new Database(dbPath);
