@@ -17,6 +17,33 @@ import NearbyHazardsPanel from './components/NearbyHazardsPanel';
 import SafetyToolsPanel from './components/SafetyToolsPanel';
 import { getDistanceMeters, isMovingTowards } from './utils/geo';
 
+// Catch any React render crash and show a visible error instead of blank white
+class ErrorBoundary extends React.Component {
+  constructor(props) { super(props); this.state = { error: null }; }
+  static getDerivedStateFromError(err) { return { error: err }; }
+  componentDidCatch(err, info) { console.error('App crash:', err, info); }
+  render() {
+    if (this.state.error) {
+      return (
+        <div className="fixed inset-0 flex flex-col items-center justify-center bg-slate-900 text-white p-8 gap-4">
+          <div className="text-4xl">⚠️</div>
+          <h1 className="text-xl font-bold">Something went wrong</h1>
+          <pre className="text-xs text-rose-300 bg-slate-800 p-4 rounded-xl max-w-lg overflow-auto whitespace-pre-wrap">
+            {this.state.error.toString()}
+          </pre>
+          <button
+            className="px-6 py-2 bg-indigo-600 rounded-xl font-bold text-sm"
+            onClick={() => { this.setState({ error: null }); window.location.reload(); }}
+          >
+            Reload App
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 // Track which community alert IDs we've already shown so we don't repeat them
 const shownCommunityAlertIds = new Set();
 
@@ -231,6 +258,7 @@ export default function App() {
   };
 
   return (
+    <ErrorBoundary>
     <div className="relative w-screen h-screen overflow-hidden bg-slate-900 select-none">
       
       {/* 1. Splash Screen */}
@@ -397,5 +425,6 @@ export default function App() {
       )}
 
     </div>
+    </ErrorBoundary>
   );
 }
