@@ -10,8 +10,8 @@ export default function SafetyToolsPanel({ userLocation, user, onSOSTriggered })
 
   return (
     <>
-      {/* Floating toggle pill button — left side, above SOS */}
-      <div className="fixed bottom-24 left-5 z-20">
+      {/* Floating toggle pill button — left side, clear of SOS button */}
+      <div className="fixed bottom-36 left-5 z-20">
         <button
           onClick={() => setOpen(prev => !prev)}
           className="flex items-center gap-2 px-4 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xs uppercase tracking-wider rounded-full shadow-xl border-2 border-white transition-all active:scale-95"

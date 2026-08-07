@@ -6,7 +6,7 @@ const HOLD_DURATION = 3000;
 const RADIUS = 30;
 const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
 
-export default function SosButton({ userLocation, user, onPromptEmergencyContact }) {
+export default function SosButton({ userLocation, user, onPromptEmergencyContact, isHighRisk = false }) {
   const [activeState, setActiveState] = useState('idle'); // idle | holding | alerting | confirmed
   const [progress, setProgress] = useState(0); // 0–1
   const [sosDetails, setSosDetails] = useState(null);
@@ -84,8 +84,8 @@ export default function SosButton({ userLocation, user, onPromptEmergencyContact
       <div className="fixed bottom-8 left-5 z-20 select-none">
         <div className="relative flex items-center justify-center" style={{ width: 90, height: 90 }}>
 
-          {/* Outer glow ring — always visible, pulses when idle */}
-          <div className={`absolute inset-0 rounded-full bg-rose-600/20 ${isHolding ? '' : 'animate-ping'}`} />
+          {/* Outer glow ring — pulses only when in a high-risk area */}
+          <div className={`absolute inset-0 rounded-full bg-rose-600/20 ${isHighRisk && !isHolding ? 'animate-ping' : ''}`} />
 
           {/* SVG progress ring */}
           <svg className="absolute inset-0 -rotate-90" width="90" height="90">
@@ -115,14 +115,14 @@ export default function SosButton({ userLocation, user, onPromptEmergencyContact
             disabled={activeState === 'alerting'}
             className={`relative w-[70px] h-[70px] rounded-full flex flex-col items-center justify-center gap-0.5
               bg-rose-600 text-white font-extrabold
-              shadow-[0_0_24px_rgba(225,29,72,0.7)]
+              ${isHighRisk ? 'shadow-[0_0_24px_rgba(225,29,72,0.7)]' : 'shadow-lg'}
               border-2 border-white
               transition-transform duration-100 disabled:opacity-60
               ${isHolding ? 'scale-95' : 'active:scale-95'}
             `}
             aria-label="Hold 3 seconds to trigger SOS"
           >
-            <Radio className={`w-5 h-5 ${isHolding ? 'animate-ping' : 'animate-pulse'}`} />
+            <Radio className={`w-5 h-5 ${isHolding ? 'animate-ping' : isHighRisk ? 'animate-pulse' : ''}`} />
             <span className="text-[8px] uppercase tracking-wider leading-none">
               {isHolding ? 'HOLD…' : 'SOS'}
             </span>

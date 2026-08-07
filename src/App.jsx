@@ -331,6 +331,7 @@ export default function App() {
             userLocation={userLocation}
             user={user}
             onPromptEmergencyContact={() => setShowContactModal(true)}
+            isHighRisk={locationStatus?.level === 'High'}
           />
 
           {/* Safety Tools Panel — Hold SOS, Location Share, Fake Call, Panic Alarm */}

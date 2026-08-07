@@ -223,11 +223,11 @@ export default function MapView({
         <Compass className="w-6 h-6 text-slate-700 group-hover:text-indigo-600 group-hover:rotate-45 transition-transform duration-300" />
       </button>
 
-      {/* Floating Action Button: "+ Report" */}
+      {/* Floating Action Button: "+ Report" — shifted left of zoom controls */}
       {!isRouteMode && (
         <button
           onClick={onOpenReport}
-          className="absolute bottom-8 right-5 z-20 flex items-center gap-2 px-5 py-3.5 bg-[#0B0F2E] hover:bg-indigo-950 text-white font-bold text-sm rounded-full shadow-2xl transition-all active:scale-95 border border-indigo-500/30"
+          className="absolute bottom-8 right-16 z-20 flex items-center gap-2 px-5 py-3.5 bg-[#0B0F2E] hover:bg-indigo-950 text-white font-bold text-sm rounded-full shadow-2xl transition-all active:scale-95 border border-indigo-500/30"
         >
           <Plus className="w-5 h-5 text-indigo-400" />
           <span>Report Hazard</span>
