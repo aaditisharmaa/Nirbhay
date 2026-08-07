@@ -19,6 +19,20 @@ router.post('/sync', requireAuthenticatedUser, (req, res) => {
   res.json({ success: true, user });
 });
 
+// Update display name
+router.post('/update-name', requireAuthenticatedUser, (req, res) => {
+  const { displayName } = req.body;
+  const userId = req.user.uid;
+  const name = (displayName || '').trim().slice(0, 40) || 'Community Guardian';
+  const existing = db.prepare('SELECT * FROM users WHERE id = ?').get(userId);
+  if (!existing) {
+    db.prepare('INSERT INTO users (id, display_name) VALUES (?, ?)').run(userId, name);
+  } else {
+    db.prepare('UPDATE users SET display_name = ? WHERE id = ?').run(name, userId);
+  }
+  res.json({ success: true, displayName: name });
+});
+
 // Update Emergency Contact
 router.post('/emergency-contact', requireAuthenticatedUser, (req, res) => {
   const { phone } = req.body;

@@ -73,6 +73,42 @@ export async function signInWithEmail(email, password, createAccount = false) {
   }
 }
 
+// One-step email-only sign-in: tries to create an account, falls back to sign-in if it exists.
+// Uses a deterministic password derived from the email so the user never has to set one.
+export async function signInWithEmailOnly(email) {
+  if (!auth) {
+    // Dev fallback
+    if (import.meta.env.DEV) {
+      return { id: `dev_${btoa(email).slice(0, 8)}`, email, displayName: email.split('@')[0], isDevelopmentUser: true };
+    }
+    throw new Error('Sign-in is not configured. Add the Firebase settings in Render and redeploy.');
+  }
+  // Derive a stable password from the email — never shown to the user
+  const derivedPassword = `Nirbhay_${btoa(email)}_2024!`;
+  try {
+    const result = await createUserWithEmailAndPassword(auth, email, derivedPassword);
+    return formatUser(result.user);
+  } catch (error) {
+    if (error.code === 'auth/email-already-in-use') {
+      try {
+        const result = await signInWithEmailAndPassword(auth, email, derivedPassword);
+        return formatUser(result.user);
+      } catch (signInError) {
+        const messages = {
+          'auth/invalid-credential': 'Could not sign in. This email may have been registered with a different method (e.g. Google).',
+          'auth/invalid-email': 'Enter a valid email address.',
+        };
+        throw new Error(messages[signInError.code] || 'Sign-in failed. Please try again.');
+      }
+    }
+    const messages = {
+      'auth/invalid-email': 'Enter a valid email address.',
+      'auth/operation-not-allowed': 'Email sign-in is not enabled in Firebase yet.',
+    };
+    throw new Error(messages[error.code] || 'Sign-in failed. Please try again.');
+  }
+}
+
 export async function getAuthHeaders() {
   if (auth?.currentUser) return { Authorization: `Bearer ${await auth.currentUser.getIdToken()}` };
   try {
