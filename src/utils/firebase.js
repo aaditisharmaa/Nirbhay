@@ -1,5 +1,12 @@
 import { initializeApp, getApps } from 'firebase/app';
-import { getAuth, GoogleAuthProvider, signInWithPopup, signOut as firebaseSignOut } from 'firebase/auth';
+import {
+  createUserWithEmailAndPassword,
+  getAuth,
+  GoogleAuthProvider,
+  signInWithEmailAndPassword,
+  signInWithPopup,
+  signOut as firebaseSignOut
+} from 'firebase/auth';
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY || '',
@@ -10,48 +17,60 @@ const firebaseConfig = {
   appId: import.meta.env.VITE_FIREBASE_APP_ID || ''
 };
 
+export const isFirebaseConfigured = Boolean(firebaseConfig.apiKey && firebaseConfig.apiKey.length > 5);
 let auth = null;
 let provider = null;
 
 try {
-  if (firebaseConfig.apiKey && firebaseConfig.apiKey.length > 5) {
+  if (isFirebaseConfigured) {
     const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
     auth = getAuth(app);
     provider = new GoogleAuthProvider();
     provider.addScope('email');
     provider.addScope('profile');
   }
-} catch (e) {
-  console.warn('Firebase init notice:', e.message);
+} catch (error) {
+  console.warn('Firebase initialization failed:', error.message);
 }
 
-/**
- * Executes real Google Sign-In via Firebase Auth
- */
+function formatUser(user) {
+  return {
+    id: user.uid,
+    email: user.email,
+    displayName: user.displayName || user.email?.split('@')[0] || 'Community Guardian',
+    photoURL: user.photoURL
+  };
+}
+
 export async function signInWithGoogle() {
   if (auth && provider) {
     try {
-      const result = await signInWithPopup(auth, provider);
-      const user = result.user;
-      return {
-        id: user.uid,
-        email: user.email,
-        displayName: user.displayName || user.email.split('@')[0],
-        photoURL: user.photoURL,
-        token: await user.getIdToken()
-      };
-    } catch (err) {
-      console.error('Real Firebase Google Auth error:', err);
-      throw new Error(`Google Sign-In failed: ${err.message}`);
+      return formatUser((await signInWithPopup(auth, provider)).user);
+    } catch (error) {
+      throw new Error(`Google sign-in failed: ${error.message}`);
     }
   }
+  if (import.meta.env.DEV) return { id: `dev_user_${crypto.randomUUID()}`, email: 'dev@nirbhay.local', displayName: 'Development User', isDevelopmentUser: true };
+  throw new Error('Google sign-in is not configured. Add the Firebase settings in Render and redeploy.');
+}
 
-  if (import.meta.env.DEV) {
-    console.warn('Firebase is not configured; using development-only session.');
-    return { id: `dev_user_${crypto.randomUUID()}`, email: 'dev@nirbhay.local', displayName: 'Development User', isDevelopmentUser: true };
+export async function signInWithEmail(email, password, createAccount = false) {
+  if (!auth) throw new Error('Email sign-in is not configured. Add the Firebase settings in Render and redeploy.');
+  try {
+    const result = createAccount
+      ? await createUserWithEmailAndPassword(auth, email, password)
+      : await signInWithEmailAndPassword(auth, email, password);
+    return formatUser(result.user);
+  } catch (error) {
+    const messages = {
+      'auth/email-already-in-use': 'An account already exists for this email. Sign in instead.',
+      'auth/invalid-credential': 'Incorrect email or password.',
+      'auth/weak-password': 'Use a password with at least 6 characters.',
+      'auth/invalid-email': 'Enter a valid email address.',
+      'auth/operation-not-allowed': 'Email sign-in is not enabled in Firebase yet.'
+    };
+    throw new Error(messages[error.code] || 'Email sign-in failed. Please try again.');
   }
-
-  throw new Error('Google sign-in is not configured. Please contact the app administrator.');
 }
 
 export async function getAuthHeaders() {
@@ -64,12 +83,6 @@ export async function getAuthHeaders() {
 }
 
 export async function signOutUser() {
-  if (auth) {
-    try {
-      await firebaseSignOut(auth);
-    } catch (e) {
-      console.warn('Firebase signout warning:', e);
-    }
-  }
+  if (auth) await firebaseSignOut(auth).catch(error => console.warn('Firebase signout warning:', error));
   localStorage.removeItem('nirbhay_user');
 }
