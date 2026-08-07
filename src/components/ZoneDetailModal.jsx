@@ -80,8 +80,8 @@ export default function ZoneDetailModal({ zone, user, onClose, onReportConfirmed
         <div className="flex justify-between items-start mb-3">
           <div>
             <div className="flex items-center gap-2">
-              <span className={`px-2.5 py-0.5 rounded-full text-xs font-black uppercase tracking-wider border ${getRiskBadge(details.riskLevel)}`}>
-                {details.riskLevel} Risk
+              <span className={`px-2.5 py-0.5 rounded-full text-xs font-black uppercase tracking-wider border ${getRiskBadge(details.riskLevel || 'Low')}`}>
+                {details.riskLevel || 'Low'} Risk
               </span>
               <span className="text-xl font-extrabold text-slate-900">
                 {details.score}<span className="text-xs text-slate-400 font-medium">/100</span>

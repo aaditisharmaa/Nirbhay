@@ -120,9 +120,9 @@ export default function NearbyHazardsPanel({ userLocation, zones = [], onSelectZ
                           {zone.distMeters}m {zone.direction}
                         </span>
                         <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full ${
-                          zone.riskLevel === 'High' ? 'bg-rose-100 text-rose-800' : 'bg-amber-100 text-amber-800'
+                          (zone.riskLevel || 'Low') === 'High' ? 'bg-rose-100 text-rose-800' : 'bg-amber-100 text-amber-800'
                         }`}>
-                          {zone.riskLevel}
+                          {zone.riskLevel || 'Low'}
                         </span>
                       </div>
 
