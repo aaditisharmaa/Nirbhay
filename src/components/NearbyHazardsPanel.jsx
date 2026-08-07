@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { getDistanceMeters, getCompassDirection } from '../utils/geo';
 import { Shield, ChevronRight, X, AlertTriangle, Compass, ChevronDown, ChevronUp } from './Icons';
 
-export default function NearbyHazardsPanel({ userLocation, zones = [], onSelectZone }) {
+export default function NearbyHazardsPanel({ userLocation = {}, zones = [], onSelectZone }) {
   const [isOpen, setIsOpen] = useState(true); // Open by default in Explore Mode
   const [aiSummary, setAiSummary] = useState('');
   const [loadingAi, setLoadingAi] = useState(false);

@@ -3,7 +3,7 @@ import L from 'leaflet';
 import { Lock, MapPin, AlertTriangle, X, Search, Compass } from './Icons';
 import { authenticatedHeaders } from '../utils/api';
 
-export default function ReportModal({ userLocation, user, onClose, onReportSubmitted }) {
+export default function ReportModal({ userLocation = {}, user, onClose, onReportSubmitted }) {
   const initialLat = userLocation.lat || 28.6328;
   const initialLng = userLocation.lng || 77.2195;
 

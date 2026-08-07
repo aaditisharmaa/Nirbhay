@@ -169,7 +169,7 @@ export default function App() {
       fetch(`/api/live-status?lat=${userLocation.lat}&lng=${userLocation.lng}`)
         .then(res => res.json())
         .then(data => {
-          if (data.success && data.status) {
+          if (data.success && data.status && data.status.level) {
             setLocationStatus(data.status);
           }
         })

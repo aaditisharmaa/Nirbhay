@@ -84,7 +84,7 @@ function hotspotGlowHtml(reportCount, radius) {
 }
 
 export default function MapView({
-  userLocation,
+  userLocation = {},
   zones = [],
   heatmapPoints = [],
   selectedZone,

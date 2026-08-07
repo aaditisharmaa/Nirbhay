@@ -3,7 +3,7 @@ import { ThumbsUp, Shield, X, AlertTriangle, Info, Lock, CheckCircle } from './I
 import { authenticatedHeaders } from '../utils/api';
 
 export default function ZoneDetailModal({ zone, user, onClose, onReportConfirmed }) {
-  const [details, setDetails] = useState(zone);
+  const [details, setDetails] = useState(zone || {});
   const [loadingAi, setLoadingAi] = useState(true);
   const [confirmingId, setConfirmingId] = useState(null);
   const [confirmError, setConfirmError] = useState(null);
@@ -15,8 +15,8 @@ export default function ZoneDetailModal({ zone, user, onClose, onReportConfirmed
     fetch(`/api/zone-explain/${zone.cellId}`)
       .then(res => res.json())
       .then(data => {
-        if (isMounted && data.success) {
-          setDetails(data.zone);
+        if (isMounted && data.success && data.zone) {
+          setDetails(prev => ({ ...prev, ...data.zone }));
         }
       })
       .catch(err => console.warn('Fetch zone detail err:', err))
@@ -88,7 +88,7 @@ export default function ZoneDetailModal({ zone, user, onClose, onReportConfirmed
               </span>
             </div>
             <p className="text-[11px] text-slate-500 font-medium mt-1">
-              Grid Cell #{details.cellId} ({details.lat.toFixed(4)}, {details.lng.toFixed(4)})
+              Grid Cell #{details.cellId} ({details.lat?.toFixed(4) ?? 'N/A'}, {details.lng?.toFixed(4) ?? 'N/A'})
             </p>
           </div>
           <button
