@@ -17,6 +17,9 @@ import NearbyHazardsPanel from './components/NearbyHazardsPanel';
 import SafetyToolsPanel from './components/SafetyToolsPanel';
 import { getDistanceMeters, isMovingTowards } from './utils/geo';
 
+// Track which community alert IDs we've already shown so we don't repeat them
+const shownCommunityAlertIds = new Set();
+
 export default function App() {
   // App States: 'splash' | 'login' | 'app'
   const [appState, setAppState] = useState('splash');
@@ -145,6 +148,30 @@ export default function App() {
         .catch(e => console.warn('Status error:', e));
     }
   }, [userLocation]);
+
+  // Poll for community danger alerts from nearby users every 15 seconds
+  useEffect(() => {
+    if (appState !== 'app') return;
+    const poll = () => {
+      const { lat, lng } = userLocation;
+      if (!lat || !lng) return;
+      fetch(`/api/community-alerts?lat=${lat}&lng=${lng}`)
+        .then(res => res.json())
+        .then(data => {
+          if (!data.success || !data.alerts?.length) return;
+          data.alerts.forEach(alert => {
+            if (!shownCommunityAlertIds.has(alert.id)) {
+              shownCommunityAlertIds.add(alert.id);
+              setToastMessage(`🔔 Nearby user alert: "${alert.message}"`);
+            }
+          });
+        })
+        .catch(() => {});
+    };
+    poll(); // run immediately on mount / state change
+    const interval = setInterval(poll, 15000);
+    return () => clearInterval(interval);
+  }, [appState, userLocation.lat, userLocation.lng]);
 
   // Load / Refresh Grid Zones
   const loadZonesData = () => {

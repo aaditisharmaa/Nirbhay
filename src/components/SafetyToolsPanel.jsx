@@ -4,6 +4,7 @@ import HoldToConfirmSOS from './HoldToConfirmSOS';
 import LiveLocationShare from './LiveLocationShare';
 import FakeIncomingCall from './FakeIncomingCall';
 import PanicAlarm from './PanicAlarm';
+import CommunityAlertButton from './CommunityAlertButton';
 import { authenticatedHeaders } from '../utils/api';
 
 export default function SafetyToolsPanel({ userLocation, user, onSOSTriggered }) {
@@ -122,6 +123,17 @@ export default function SafetyToolsPanel({ userLocation, user, onSOSTriggered })
                   </p>
                 </div>
                 <PanicAlarm />
+              </div>
+
+              {/* Tool 5: Community Alert */}
+              <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl shadow-sm">
+                <div className="mb-3">
+                  <h3 className="text-sm font-extrabold text-slate-900 mb-1">Alert Nearby Users</h3>
+                  <p className="text-xs text-slate-600 leading-relaxed">
+                    Feeling unsafe? Broadcast an anonymous alert to all Nirbhay users within 1km so they stay aware.
+                  </p>
+                </div>
+                <CommunityAlertButton userLocation={userLocation} />
               </div>
 
             </div>

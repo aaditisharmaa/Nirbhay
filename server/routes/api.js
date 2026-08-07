@@ -396,6 +396,64 @@ router.post('/sos', requireAuthenticatedUser, async (req, res) => {
   }
 });
 
+// POST /api/community-alert — broadcast a "feeling unsafe" alert to nearby users
+router.post('/community-alert', requireAuthenticatedUser, (req, res) => {
+  try {
+    const { lat, lng, message } = req.body;
+    const coordinates = parseCoordinates(lat, lng);
+    if (!coordinates) return res.status(400).json({ error: 'Location coordinates required.' });
+
+    const safeMessage = (message || 'I am feeling unsafe in this area. Please stay alert.').slice(0, 200);
+    const id = `ca_${crypto.randomUUID()}`;
+
+    db.prepare(`
+      INSERT INTO community_alerts (id, user_id, lat, lng, message)
+      VALUES (?, ?, ?, ?, ?)
+    `).run(id, req.user.uid, coordinates.lat, coordinates.lng, safeMessage);
+
+    res.json({ success: true, id, message: safeMessage });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /api/community-alerts?lat=&lng= — fetch alerts within 1km posted in last 30 mins
+router.get('/community-alerts', (req, res) => {
+  try {
+    const coordinates = parseCoordinates(req.query.lat, req.query.lng);
+    if (!coordinates) return res.status(400).json({ error: 'lat and lng required.' });
+
+    const { lat, lng } = coordinates;
+    const thirtyMinsAgo = new Date(Date.now() - 30 * 60 * 1000).toISOString();
+
+    const alerts = db.prepare(`
+      SELECT id, lat, lng, message, created_at
+      FROM community_alerts
+      WHERE created_at > ?
+      ORDER BY created_at DESC
+      LIMIT 50
+    `).all(thirtyMinsAgo);
+
+    // Filter to 1km radius using Haversine approximation
+    const R = 6371000;
+    const nearby = alerts.filter(a => {
+      const dLat = (a.lat - lat) * Math.PI / 180;
+      const dLng = (a.lng - lng) * Math.PI / 180;
+      const sinDLat = Math.sin(dLat / 2);
+      const sinDLng = Math.sin(dLng / 2);
+      const c = 2 * Math.atan2(
+        Math.sqrt(sinDLat * sinDLat + Math.cos(lat * Math.PI / 180) * Math.cos(a.lat * Math.PI / 180) * sinDLng * sinDLng),
+        Math.sqrt(1 - sinDLat * sinDLat - Math.cos(lat * Math.PI / 180) * Math.cos(a.lat * Math.PI / 180) * sinDLng * sinDLng)
+      );
+      return R * c <= 1000;
+    });
+
+    res.json({ success: true, alerts: nearby });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // GET /api/stats - Public system counters
 router.get('/stats', (req, res) => {
   const totalReports = db.prepare('SELECT COUNT(*) as count FROM reports').get().count;

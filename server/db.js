@@ -94,6 +94,18 @@ try {
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
   `);
+  // Community danger alerts table
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS community_alerts (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      lat REAL NOT NULL,
+      lng REAL NOT NULL,
+      message TEXT NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+  `);
+
   // Existing databases need this additive migration.
   try {
     db.exec('ALTER TABLE reports ADD COLUMN is_likely_spam INTEGER DEFAULT 0');
