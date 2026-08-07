@@ -26,7 +26,10 @@ out center;`;
     const response = await fetch(url, {
       method: 'POST',
       body: 'data=' + encodeURIComponent(overpassQuery),
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'User-Agent': 'NirbhaySafetyApp/1.0 (https://nirbhay-safety-app-uwva.onrender.com)'
+      }
     });
 
     if (!response.ok) {

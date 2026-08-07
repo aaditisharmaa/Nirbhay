@@ -131,7 +131,11 @@ try {
 
       return {
         run(...args) {
-          if (sqlLower.includes('insert into users')) {
+          if (sqlLower.includes('delete from reports')) {
+            memoryStore.reports.clear();
+          } else if (sqlLower.includes('delete from upvotes')) {
+            memoryStore.upvotes.clear();
+          } else if (sqlLower.includes('insert into users')) {
             const [id, email, display_name] = args;
             memoryStore.users.set(id, { id, email, display_name, created_at: new Date().toISOString() });
           } else if (sqlLower.includes('update users set emergency_contact')) {
@@ -163,7 +167,12 @@ try {
         },
 
         get(...args) {
-          if (sqlLower.includes('select * from users where id')) {
+          if (sqlLower.includes('select created_at from reports')) {
+            const reports = Array.from(memoryStore.reports.values());
+            if (reports.length === 0) return null;
+            reports.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+            return { created_at: reports[0].created_at, cnt: reports.length, count: reports.length };
+          } else if (sqlLower.includes('select * from users where id')) {
             return memoryStore.users.get(args[0]) || null;
           } else if (sqlLower.includes('select emergency_contact from users')) {
             const u = memoryStore.users.get(args[0]);
@@ -180,7 +189,11 @@ try {
 
         all() {
           if (sqlLower.includes('from reports')) {
-            return Array.from(memoryStore.reports.values());
+            const reports = Array.from(memoryStore.reports.values());
+            if (sqlLower.includes('order by created_at desc')) {
+              reports.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+            }
+            return reports;
           } else if (sqlLower.includes('from upvotes')) {
             return Array.from(memoryStore.upvotes.values());
           } else if (sqlLower.includes('from users')) {

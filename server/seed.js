@@ -2,16 +2,39 @@ import db from './db.js';
 import { getCellId } from './services/riskEngine.js';
 
 export function seedDatabase(forceReSeed = false) {
-  const existingCount = db.prepare('SELECT COUNT(*) as cnt FROM reports').get().cnt;
-  if (existingCount >= 800 && !forceReSeed) {
-    console.log(`ℹ️ Database already seeded with ${existingCount} national safety reports.`);
+  let existingCount = 0;
+  try {
+    const res = db.prepare('SELECT COUNT(*) as cnt FROM reports').get();
+    existingCount = res ? (res.cnt || res.count || 0) : 0;
+  } catch (e) {
+    existingCount = 0;
+  }
+
+  let isOutdated = false;
+  if (existingCount > 0) {
+    try {
+      const latestReport = db.prepare('SELECT created_at FROM reports ORDER BY created_at DESC LIMIT 1').get();
+      if (latestReport && latestReport.created_at) {
+        const msOld = Date.now() - new Date(latestReport.created_at).getTime();
+        if (msOld > 2 * 24 * 60 * 60 * 1000) {
+          isOutdated = true;
+          console.log(`ℹ️ Seed data is ${Math.round(msOld / (1000 * 3600 * 24))} days old. Auto-refreshing timestamps...`);
+        }
+      }
+    } catch (e) {}
+  }
+
+  if (existingCount >= 800 && !forceReSeed && !isOutdated) {
+    console.log(`ℹ️ Database already seeded with ${existingCount} fresh national safety reports.`);
     return;
   }
 
-  if (forceReSeed) {
-    console.log('🧹 Resetting database for nationwide multi-state seed dataset...');
-    db.prepare('DELETE FROM reports').run();
-    db.prepare('DELETE FROM upvotes').run();
+  if (forceReSeed || isOutdated || existingCount < 800) {
+    console.log('🧹 Clearing & generating fresh nationwide multi-state seed dataset...');
+    try {
+      db.prepare('DELETE FROM reports').run();
+      db.prepare('DELETE FROM upvotes').run();
+    } catch (e) {}
   }
 
   console.log('🌱 Generating national safety report dataset (~950 reports across Uttar Pradesh + 8 Major Indian Cities)...');

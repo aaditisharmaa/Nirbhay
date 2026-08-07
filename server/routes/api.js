@@ -1,6 +1,7 @@
 import express from 'express';
 import crypto from 'crypto';
 import db from '../db.js';
+import { seedDatabase } from '../seed.js';
 import { computeAllGridScores, getCellId, getPointRiskStatus } from '../services/riskEngine.js';
 import { syncOsmData } from '../services/osmService.js';
 import { isDaytimeForDistrict, warmSunriseSunsetCache } from '../services/sunriseSunsetService.js';
@@ -480,6 +481,23 @@ router.get('/community-alerts', (req, res) => {
     });
 
     res.json({ success: true, alerts: nearby });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/seed - Administrative endpoint to force re-seed database with fresh timestamps
+router.post('/seed', (req, res) => {
+  try {
+    seedDatabase(true);
+    const zones = computeAllGridScores(cachedOsmFeatures);
+    const totalReports = db.prepare('SELECT COUNT(*) as count FROM reports').get().count;
+    res.json({
+      success: true,
+      totalReports,
+      zonesMapped: zones.length,
+      message: 'Database re-seeded successfully with fresh timestamps!'
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
