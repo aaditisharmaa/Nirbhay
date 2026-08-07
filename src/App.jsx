@@ -87,7 +87,9 @@ export default function App() {
   }, []); // stable — never recreated
 
   // Handle Location Telemetry & Feature 3: Proximity Trajectory Alerts
-  const handleLocationUpdate = (loc, currentZones = zones) => {
+  // Defined before the useEffect that references it via zonesRef
+  const handleLocationUpdate = (loc, currentZones) => {
+    const zonesToCheck = currentZones ?? zonesRef.current;
     setUserLocation(loc);
 
     if (!loc.lat || !loc.lng || loc.denied) return;
@@ -97,11 +99,11 @@ export default function App() {
     locationHistoryRef.current = newHistory;
 
     // Feature 3: Check proximity to High-Risk zones (Score > 65) within 200m
-    if (currentZones && currentZones.length > 0) {
+    if (zonesToCheck && zonesToCheck.length > 0) {
       const now = Date.now();
       const FIVE_MIN_MS = 5 * 60 * 1000;
 
-      currentZones.forEach(zone => {
+      zonesToCheck.forEach(zone => {
         if (zone.score > 65 || zone.riskLevel === 'High') {
           const dist = getDistanceMeters(loc.lat, loc.lng, zone.lat, zone.lng);
           
