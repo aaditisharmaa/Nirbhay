@@ -3,10 +3,11 @@ import crypto from 'crypto';
 import db from '../db.js';
 import { computeAllGridScores, getCellId, getPointRiskStatus } from '../services/riskEngine.js';
 import { syncOsmData } from '../services/osmService.js';
-import { 
-  classifyReportText, 
-  explainZoneScoreDetailed, 
-  generateAnomalySummary, 
+import { isDaytimeForDistrict, warmSunriseSunsetCache } from '../services/sunriseSunsetService.js';
+import {
+  classifyReportText,
+  explainZoneScoreDetailed,
+  generateAnomalySummary,
   generateRouteSummaryAi,
   generateNearbySummary,
   generateProximityAlertAi,
@@ -16,11 +17,38 @@ import { getScoredRoutes } from '../services/routerService.js';
 import { sendSosAlert } from '../services/smsService.js';
 import { requireAuthenticatedUser } from '../middleware/auth.js';
 import { parseCoordinates, validateReport } from '../middleware/validation.js';
+import { NCRB_DISTRICT_MULTIPLIERS } from '../services/riskEngine.js';
 
 const router = express.Router();
 
 // Cache spatial features in memory
 let cachedOsmFeatures = { streetlights: [], policeStations: [], isolatedWays: [] };
+
+// Pre-resolved day/night state per district — refreshed every 30 minutes
+let cachedDaytimeByDistrict = new Map();
+let lastDaytimeRefresh = 0;
+const DAYTIME_CACHE_MS = 30 * 60 * 1000; // 30 minutes
+
+async function refreshDaytimeContext() {
+  const now = Date.now();
+  if (now - lastDaytimeRefresh < DAYTIME_CACHE_MS) return cachedDaytimeByDistrict;
+  try {
+    const districts = Object.keys(NCRB_DISTRICT_MULTIPLIERS).filter(d => d !== 'default');
+    const results = await Promise.allSettled(
+      districts.map(async d => ({ district: d, isDaytime: await isDaytimeForDistrict(d) }))
+    );
+    const fresh = new Map();
+    results.forEach(r => {
+      if (r.status === 'fulfilled') fresh.set(r.value.district, r.value.isDaytime);
+    });
+    cachedDaytimeByDistrict = fresh;
+    lastDaytimeRefresh = now;
+    return fresh;
+  } catch (err) {
+    console.warn('Daytime context refresh failed:', err.message);
+    return cachedDaytimeByDistrict;
+  }
+}
 
 // Public map data must not expose a reporter's free-text description or identity.
 function toPublicZone(zone) {
@@ -36,16 +64,19 @@ function toPublicZone(zone) {
   };
 }
 
-// Initialize OSM spatial features on startup
+// Initialize OSM spatial features and sunrise/sunset cache on startup
 syncOsmData().then(features => {
   cachedOsmFeatures = features;
   console.log('✅ OSM spatial features initialized.');
 }).catch(err => console.warn('OSM init warning:', err));
 
+warmSunriseSunsetCache().catch(() => {});
+
 // GET /api/zones - Fetch all computed grid zones with risk scores & heatmap points
-router.get('/zones', (req, res) => {
+router.get('/zones', async (req, res) => {
   try {
-    const zones = computeAllGridScores(cachedOsmFeatures);
+    const daytimeByDistrict = await refreshDaytimeContext();
+    const zones = computeAllGridScores(cachedOsmFeatures, { daytimeByDistrict });
     
     // Format heatmap points: [lat, lng, intensity]
     const heatmapPoints = zones.map(z => [
@@ -70,7 +101,8 @@ router.get('/zones', (req, res) => {
 router.get('/zone-explain/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const zones = computeAllGridScores(cachedOsmFeatures);
+    const daytimeByDistrict = await refreshDaytimeContext();
+    const zones = computeAllGridScores(cachedOsmFeatures, { daytimeByDistrict });
     const targetZone = zones.find(z => z.cellId === id);
 
     if (!targetZone) {
@@ -202,15 +234,14 @@ router.post('/nearby-summary', async (req, res) => {
 });
 
 // GET /api/live-status - Get live risk level for user's lat/lng
-router.get('/live-status', (req, res) => {
+router.get('/live-status', async (req, res) => {
   const coordinates = parseCoordinates(req.query.lat, req.query.lng);
   if (!coordinates) {
     return res.status(400).json({ error: 'lat and lng required' });
   }
-
-  const zones = computeAllGridScores(cachedOsmFeatures);
+  const daytimeByDistrict = await refreshDaytimeContext();
+  const zones = computeAllGridScores(cachedOsmFeatures, { daytimeByDistrict });
   const status = getPointRiskStatus(coordinates.lat, coordinates.lng, zones);
-
   res.json({ success: true, status });
 });
 

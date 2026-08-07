@@ -186,20 +186,41 @@ export async function explainZoneScoreDetailed(zoneData) {
 
   const buildFallback = () => {
     const factors = [];
+
+    // Community reports
     if (reportCount > 0) factors.push(`${reportCount} recent community safety report${reportCount > 1 ? 's' : ''}`);
     else factors.push('Cold-start zone (public data signals only)');
 
-    if (signals.streetlightsCount < 2) factors.push('Low streetlight density detected');
-    else factors.push('Standard streetlight coverage');
+    // Lighting — mention time-of-day context when available
+    if (signals.streetlightsCount < 2) {
+      if (signals.isDaytime === false) {
+        factors.push('Low streetlight density — elevated nighttime risk (post-sunset)');
+      } else if (signals.isDaytime === true) {
+        factors.push('Low streetlight density (reduced weight during daylight hours)');
+      } else {
+        factors.push('Low streetlight density detected');
+      }
+    } else {
+      factors.push(`Standard streetlight coverage (${signals.streetlightsCount} lights within 150m)`);
+    }
 
+    // Police proximity
     if (signals.nearestPoliceDistKm > 1.5) factors.push(`Police station ${signals.nearestPoliceDistKm}km away`);
     else factors.push('Proximity to local police station');
 
+    // Isolation
     if (signals.isIsolated) factors.push('Secluded area or park boundary');
+
+    // NCRB baseline — only surface when it meaningfully adjusts the score
+    if (signals.ncrbMultiplier && signals.ncrbMultiplier > 1.05 && signals.districtName && signals.districtName !== 'default') {
+      factors.push(
+        `District crime baseline (NCRB data): ${signals.districtName} district carries a ×${signals.ncrbMultiplier.toFixed(2)} baseline adjustment from government-recorded crime statistics`
+      );
+    }
 
     return {
       explanation: `This area is rated as ${riskLevel.toLowerCase()} risk (${score}/100) based on ${reportCount} community report${reportCount !== 1 ? 's' : ''} and public spatial signals.`,
-      contributing_factors: factors.slice(0, 4)
+      contributing_factors: factors.slice(0, 5)
     };
   };
 
@@ -208,7 +229,17 @@ export async function explainZoneScoreDetailed(zoneData) {
   }
 
   try {
-    const prompt = `Analyze this safety risk zone and generate a 2-line plain-language explanation and 3-4 bullet point contributing factors.
+    const timeContext = signals?.isDaytime === true
+      ? 'Daytime — streetlight weight reduced (30% of normal).'
+      : signals?.isDaytime === false
+        ? 'Nighttime / post-sunset — streetlight weight at full (100%).'
+        : 'Time of day unknown.';
+
+    const ncrbContext = (signals?.ncrbMultiplier && signals.ncrbMultiplier > 1.05 && signals?.districtName !== 'default')
+      ? `NCRB 2022 district baseline multiplier for ${signals.districtName}: ×${signals.ncrbMultiplier} (government crime data — periodic, not real-time).`
+      : 'No significant NCRB district adjustment.';
+
+    const prompt = `Analyze this safety risk zone and generate a 2-line plain-language explanation and 3-5 bullet point contributing factors.
 Zone Data:
 - Risk Score: ${score}/100 (${riskLevel} Risk)
 - Community Reports Count: ${reportCount}
@@ -216,7 +247,10 @@ Zone Data:
 - Streetlamps Count: ${signals?.streetlightsCount || 0}
 - Police Distance: ${signals?.nearestPoliceDistKm || 2.0} km
 - Isolated Area: ${signals?.isIsolated ? 'Yes' : 'No'}
+- Time Context: ${timeContext}
+- Government Data: ${ncrbContext}
 
+If NCRB data is present, include one factor labelled exactly: "District crime baseline (NCRB data): ..." 
 Respond strictly with valid JSON only in this exact shape:
 {
   "explanation": "2-line plain language explanation of why the zone has this score.",
@@ -232,7 +266,7 @@ Respond strictly with valid JSON only in this exact shape:
       },
       body: JSON.stringify({
         model: 'claude-3-5-sonnet-20241022',
-        max_tokens: 250,
+        max_tokens: 300,
         messages: [{ role: 'user', content: prompt }]
       })
     });
