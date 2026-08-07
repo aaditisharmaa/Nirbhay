@@ -45,19 +45,6 @@ function pinSvg(fill, glow, size = 32, icon = '') {
     ${icon ? `<text x="20" y="23" text-anchor="middle" font-size="${fontSize}" font-family="serif">${icon}</text>` : ''}
   </svg>`;
 }
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${Math.round(size * 1.4)}" viewBox="0 0 40 56">
-    <defs>
-      <filter id="gf${id}" x="-60%" y="-60%" width="220%" height="220%">
-        <feGaussianBlur stdDeviation="3.5" result="blur"/>
-        <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
-      </filter>
-    </defs>
-    <path d="M20 2 C10.6 2 3 9.6 3 19 C3 30 20 54 20 54 C20 54 37 30 37 19 C37 9.6 29.4 2 20 2Z"
-      fill="${fill}" stroke="rgba(255,255,255,0.85)" stroke-width="1.5"
-      filter="url(#gf${id})"/>
-    <circle cx="20" cy="19" r="6" fill="white" opacity="0.92"/>
-  </svg>`;
-}
 
 // User pin (dark body, white ring)
 function userPinSvg() {
