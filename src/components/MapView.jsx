@@ -89,11 +89,21 @@ export default function MapView({
       attributionControl: false
     });
 
-    // Esri World Street Map -- geographic: shows green parks, building footprints,
-    // terrain colours, water bodies, and clearly labelled streets/area names
-    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', {
+    // Esri World Imagery -- real satellite photos (same Maxar/Airbus provider as Google satellite)
+    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
       maxZoom: 19,
-      attribution: 'Tiles &copy; <a href="https://www.esri.com">Esri</a>'
+      attribution: 'Tiles &copy; Esri &mdash; Source: Esri, Maxar, GeoEye, Earthstar Geographics'
+    }).addTo(map);
+
+    // Label overlay -- place names, road names, POIs on top of satellite
+    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Transportation/MapServer/tile/{z}/{y}/{x}', {
+      maxZoom: 19,
+      opacity: 0.8
+    }).addTo(map);
+
+    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', {
+      maxZoom: 19,
+      opacity: 0.9
     }).addTo(map);
 
     L.control.zoom({ position: 'bottomright' }).addTo(map);
@@ -242,9 +252,9 @@ export default function MapView({
     <div className="relative w-full h-full">
       <div ref={mapRef} className="w-full h-full" />
 
-      {/* Severity legend */}
-      <div className="absolute top-20 left-1/2 -translate-x-1/2 z-20 flex items-center gap-4 px-4 py-1.5 rounded-full bg-white/80 backdrop-blur-sm border border-slate-200 shadow text-xs font-semibold text-slate-700 pointer-events-none">
-        <span className="font-bold text-slate-500">Severity:</span>
+      {/* Severity legend — dark pill for readability over satellite */}
+      <div className="absolute top-20 left-1/2 -translate-x-1/2 z-20 flex items-center gap-4 px-4 py-1.5 rounded-full bg-slate-900/75 backdrop-blur-sm border border-white/15 shadow text-xs font-semibold text-white/90 pointer-events-none">
+        <span className="font-bold text-white/60">Severity:</span>
         <span className="flex items-center gap-1.5">
           <span className="w-2.5 h-2.5 rounded-full inline-block" style={{background:'#f43f5e',boxShadow:'0 0 5px #f43f5e'}}/>High
         </span>
@@ -259,19 +269,21 @@ export default function MapView({
       {/* Recenter */}
       <button
         onClick={handleRecenter}
-        className="absolute bottom-24 right-5 z-20 w-11 h-11 bg-white hover:bg-slate-50 text-slate-700 rounded-full shadow-lg flex items-center justify-center border border-slate-200 transition-all active:scale-95 group"
+        className="absolute bottom-24 right-5 z-20 w-11 h-11 rounded-full flex items-center justify-center transition-all active:scale-95 group"
+        style={{background:'rgba(15,23,42,0.82)',border:'1px solid rgba(255,255,255,0.2)',boxShadow:'0 2px 12px rgba(0,0,0,0.4)'}}
         title="Recenter"
       >
-        <Compass className="w-5 h-5 text-indigo-500 group-hover:rotate-45 transition-transform duration-300" />
+        <Compass className="w-5 h-5 text-white group-hover:rotate-45 transition-transform duration-300" />
       </button>
 
       {/* Report Hazard */}
       {!isRouteMode && (
         <button
           onClick={onOpenReport}
-          className="absolute bottom-8 right-16 z-20 flex items-center gap-2 px-5 py-3.5 bg-[#0B0F2E] hover:bg-indigo-950 text-white font-bold text-sm rounded-full shadow-2xl transition-all active:scale-95 border border-indigo-500/30"
+          className="absolute bottom-8 right-16 z-20 flex items-center gap-2 px-5 py-3.5 font-bold text-sm rounded-full transition-all active:scale-95 text-white"
+          style={{background:'rgba(11,15,46,0.88)',border:'1px solid rgba(99,102,241,0.5)',boxShadow:'0 0 18px rgba(99,102,241,0.4)',backdropFilter:'blur(8px)'}}
         >
-          <Plus className="w-5 h-5 text-indigo-400" />
+          <Plus className="w-5 h-5 text-indigo-300" />
           <span>Report Hazard</span>
         </button>
       )}
