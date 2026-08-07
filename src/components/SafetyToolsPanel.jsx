@@ -29,8 +29,8 @@ export default function SafetyToolsPanel({ userLocation, user, onSOSTriggered })
 
   return (
     <>
-      {/* Floating toggle button — bottom right */}
-      <div className="fixed bottom-8 right-5 z-20">
+      {/* Floating toggle button — above the Report Hazard button */}
+      <div className="fixed bottom-40 right-5 z-20">
         <button
           onClick={() => setOpen(prev => !prev)}
           className="flex items-center gap-2 px-4 py-3 bg-indigo-700 hover:bg-indigo-800 text-white font-bold text-xs uppercase tracking-wider rounded-full shadow-xl border-2 border-white transition-all active:scale-95"

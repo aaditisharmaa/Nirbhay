@@ -214,7 +214,7 @@ export default function MapView({
       {/* Map Container */}
       <div ref={mapRef} className="w-full h-full" />
 
-      {/* Issue 3: Google-Maps-Style "Recenter to My Location" Circular Button */}
+      {/* Recenter button — above the Report Hazard button */}
       <button
         onClick={handleRecenter}
         className="absolute bottom-24 right-5 z-20 w-11 h-11 bg-white hover:bg-slate-50 text-slate-700 hover:text-indigo-600 rounded-full shadow-2xl flex items-center justify-center border border-slate-200 transition-all active:scale-95 group"
