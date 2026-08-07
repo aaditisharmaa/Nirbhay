@@ -1,0 +1,2 @@
+﻿Place a siren.mp3 audio file here for the Panic Alarm feature.
+Free siren sounds: https://freesound.org/search/?q=siren

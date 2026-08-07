@@ -14,6 +14,7 @@ import StatsFooter from './components/StatsFooter';
 import RecentAlertsFeed from './components/RecentAlertsFeed';
 import ToastNotification from './components/ToastNotification';
 import NearbyHazardsPanel from './components/NearbyHazardsPanel';
+import SafetyToolsPanel from './components/SafetyToolsPanel';
 import { getDistanceMeters, isMovingTowards } from './utils/geo';
 
 export default function App() {
@@ -303,6 +304,13 @@ export default function App() {
             userLocation={userLocation}
             user={user}
             onPromptEmergencyContact={() => setShowContactModal(true)}
+          />
+
+          {/* Safety Tools Panel — Hold SOS, Location Share, Fake Call, Panic Alarm */}
+          <SafetyToolsPanel
+            userLocation={userLocation}
+            user={user}
+            onSOSTriggered={() => setToastMessage('🚨 SOS alert dispatched to your emergency contact!')}
           />
 
           {/* Counter Stats Footer */}
