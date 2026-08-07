@@ -1,32 +1,12 @@
 import React, { useState } from 'react';
 import { Shield, X, ChevronUp, ChevronDown } from './Icons';
-import HoldToConfirmSOS from './HoldToConfirmSOS';
 import LiveLocationShare from './LiveLocationShare';
 import FakeIncomingCall from './FakeIncomingCall';
 import PanicAlarm from './PanicAlarm';
 import CommunityAlertButton from './CommunityAlertButton';
-import { authenticatedHeaders } from '../utils/api';
 
 export default function SafetyToolsPanel({ userLocation, user, onSOSTriggered }) {
   const [open, setOpen] = useState(false);
-
-  const handleSOSTriggered = async () => {
-    onSOSTriggered && onSOSTriggered();
-    // Fire the SOS API call the same way as SosButton does
-    try {
-      const payload = {
-        lat: userLocation?.lat || 28.6328,
-        lng: userLocation?.lng || 77.2195,
-      };
-      await fetch('/api/sos', {
-        method: 'POST',
-        headers: await authenticatedHeaders(),
-        body: JSON.stringify(payload),
-      });
-    } catch (err) {
-      console.error('Hold-SOS dispatch error:', err);
-    }
-  };
 
   return (
     <>
@@ -79,20 +59,7 @@ export default function SafetyToolsPanel({ userLocation, user, onSOSTriggered })
                 </p>
               </div>
 
-              {/* Tool 1: Hold-to-SOS */}
-              <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl shadow-sm">
-                <div className="mb-3">
-                  <h3 className="text-sm font-extrabold text-slate-900 mb-1">Hold-to-SOS</h3>
-                  <p className="text-xs text-slate-600 leading-relaxed">
-                    Press and hold the button for 3 seconds to send an emergency alert to your guardian contact with your live GPS location.
-                  </p>
-                </div>
-                <div className="flex justify-center">
-                  <HoldToConfirmSOS onSOSTriggered={handleSOSTriggered} />
-                </div>
-              </div>
-
-              {/* Tool 2: Share Location */}
+              {/* Tool 1: Share Location */}
               <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl shadow-sm">
                 <div className="mb-3">
                   <h3 className="text-sm font-extrabold text-slate-900 mb-1">Share Live Location</h3>
