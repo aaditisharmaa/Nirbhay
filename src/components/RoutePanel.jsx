@@ -10,8 +10,9 @@ export default function RoutePanel({ userLocation, onRouteCalculated, onClose })
   const [selectedRouteId, setSelectedRouteId] = useState(null);
   const [error, setError] = useState(null);
 
-  const handleSearchRoutes = async (e) => {
+  const handleSearchRoutes = async (e, modeOverride) => {
     if (e) e.preventDefault();
+    const activeMode = modeOverride || travelMode;
     setLoading(true);
     setError(null);
 
@@ -36,7 +37,7 @@ export default function RoutePanel({ userLocation, onRouteCalculated, onClose })
       const res = await fetch('/api/routes', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ origin: startCoords, destination: destCoords, travelMode })
+        body: JSON.stringify({ origin: startCoords, destination: destCoords, travelMode: activeMode })
       });
 
       const data = await res.json();
@@ -76,7 +77,10 @@ export default function RoutePanel({ userLocation, onRouteCalculated, onClose })
       <div className="flex bg-slate-100 p-1 rounded-2xl mb-3 border border-slate-200">
         <button
           type="button"
-          onClick={() => setTravelMode('walking')}
+          onClick={() => {
+            setTravelMode('walking');
+            if (routeResult) handleSearchRoutes(null, 'walking');
+          }}
           className={`flex-1 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
             travelMode === 'walking'
               ? 'bg-[#0B0F2E] text-white shadow-md'
@@ -87,7 +91,10 @@ export default function RoutePanel({ userLocation, onRouteCalculated, onClose })
         </button>
         <button
           type="button"
-          onClick={() => setTravelMode('vehicle')}
+          onClick={() => {
+            setTravelMode('vehicle');
+            if (routeResult) handleSearchRoutes(null, 'vehicle');
+          }}
           className={`flex-1 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
             travelMode === 'vehicle'
               ? 'bg-[#0B0F2E] text-white shadow-md'
@@ -192,6 +199,12 @@ export default function RoutePanel({ userLocation, onRouteCalculated, onClose })
                     </span>
                     <span>•</span>
                     <span>{(r.distanceMeters / 1000).toFixed(1)} km</span>
+                    {r.speedContext && (
+                      <>
+                        <span>•</span>
+                        <span className="text-[10px]">{r.speedContext}</span>
+                      </>
+                    )}
                   </div>
                 </div>
 

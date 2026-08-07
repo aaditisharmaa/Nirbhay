@@ -37,12 +37,14 @@ export default function App() {
   const [heatmapPoints, setHeatmapPoints] = useState([]);
 
   // Active UI Controls & Modals
+  const [activeTab, setActiveTab] = useState('MAP'); // 'MAP' | 'LIVE' | 'LIST'
   const [mode, setMode] = useState('explore'); // 'explore' | 'route'
   const [selectedZone, setSelectedZone] = useState(null);
+  const [reportLocation, setReportLocation] = useState(null);
   const [showReportModal, setShowReportModal] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showContactModal, setShowContactModal] = useState(false);
-  const [isFeedOpen, setIsFeedOpen] = useState(true);
+  const [isFeedOpen, setIsFeedOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState(null);
   const [feedRefreshTrigger, setFeedRefreshTrigger] = useState(0);
 
@@ -61,14 +63,19 @@ export default function App() {
   }, []);
 
   // Continuous High-Precision Live Location Telemetry Tracker
+  // Dependency array is intentionally empty — the watcher must not restart
+  // every time zones update or it loses GPS lock and precision degrades.
+  const zonesRef = useRef(zones);
+  useEffect(() => { zonesRef.current = zones; }, [zones]);
+
   useEffect(() => {
     if (!('geolocation' in navigator)) return;
 
-    const geoOptions = { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 };
+    const geoOptions = { enableHighAccuracy: true, timeout: 15000, maximumAge: 2000 };
     const watchId = navigator.geolocation.watchPosition(
       (pos) => {
         const loc = { lat: pos.coords.latitude, lng: pos.coords.longitude, accuracy: pos.coords.accuracy };
-        handleLocationUpdate(loc);
+        handleLocationUpdate(loc, zonesRef.current);
       },
       (err) => {
         console.warn('Live location acquisition warning:', err.message);
@@ -77,10 +84,10 @@ export default function App() {
     );
 
     return () => navigator.geolocation.clearWatch(watchId);
-  }, [zones]);
+  }, []); // stable — never recreated
 
   // Handle Location Telemetry & Feature 3: Proximity Trajectory Alerts
-  const handleLocationUpdate = (loc) => {
+  const handleLocationUpdate = (loc, currentZones = zones) => {
     setUserLocation(loc);
 
     if (!loc.lat || !loc.lng || loc.denied) return;
@@ -90,42 +97,32 @@ export default function App() {
     locationHistoryRef.current = newHistory;
 
     // Feature 3: Check proximity to High-Risk zones (Score > 65) within 200m
-    if (zones && zones.length > 0) {
+    if (currentZones && currentZones.length > 0) {
       const now = Date.now();
       const FIVE_MIN_MS = 5 * 60 * 1000;
 
-      zones.forEach(zone => {
+      currentZones.forEach(zone => {
         if (zone.score > 65 || zone.riskLevel === 'High') {
           const dist = getDistanceMeters(loc.lat, loc.lng, zone.lat, zone.lng);
           
           if (dist <= 200) {
             const lastAlerted = alertCooldownsRef.current[zone.cellId] || 0;
             if (now - lastAlerted > FIVE_MIN_MS) {
-              // Rate limit check passed: set cooldown and trigger toast alert
               alertCooldownsRef.current[zone.cellId] = now;
               const zoneName = zone.locationName || 'Connaught Place / Hauz Khas Area';
               const topFactor = Object.keys(zone.categoryCounts || {})[0] || 'poor lighting';
               
-              // Immediate fallback alert (never blocks or delays safety action)
               const fallbackMsg = `🚨 Approaching a high-risk area (${dist}m ahead) — ${zoneName}. Stay alert.`;
               setToastMessage(fallbackMsg);
 
-              // Context-aware AI prompt request
               fetch('/api/proximity-ai', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  distanceMeters: dist,
-                  zoneName,
-                  topFactor,
-                  timeOfDay: 'evening'
-                })
+                body: JSON.stringify({ distanceMeters: dist, zoneName, topFactor, timeOfDay: 'evening' })
               })
                 .then(res => res.json())
                 .then(data => {
-                  if (data.success && data.alertMessage) {
-                    setToastMessage(`🚨 ${data.alertMessage}`);
-                  }
+                  if (data.success && data.alertMessage) setToastMessage(`🚨 ${data.alertMessage}`);
                 })
                 .catch(e => console.warn('Proximity AI error:', e));
             }
@@ -262,17 +259,18 @@ export default function App() {
 
           {/* Top Bar Navigation & Live Risk Status */}
           <TopHeader
-            mode={mode}
-            onModeChange={(newMode) => {
-              setMode(newMode);
-              if (newMode === 'explore') {
-                setRouteData(null);
+            activeTab={activeTab}
+            onTabChange={(tab) => {
+              setActiveTab(tab);
+              if (tab === 'LIVE' || tab === 'LIST') {
+                setIsFeedOpen(true);
+              } else {
+                setIsFeedOpen(false);
               }
             }}
-            locationStatus={locationStatus}
+            radiusMeters={100}
             onOpenSettings={() => setShowSettingsModal(true)}
-            onToggleFeed={() => setIsFeedOpen(prev => !prev)}
-            isFeedOpen={isFeedOpen}
+            onOpenMenu={() => setShowSettingsModal(true)}
           />
 
           {/* Feature 2: Nearby Hazards Panel (Open by default in Explore Mode) */}
@@ -303,10 +301,15 @@ export default function App() {
             heatmapPoints={heatmapPoints}
             selectedZone={selectedZone}
             onSelectZone={(zone) => setSelectedZone(zone)}
-            onOpenReport={() => setShowReportModal(true)}
+            onOpenReport={(pos) => {
+              if (pos) setReportLocation(pos);
+              setShowReportModal(true);
+            }}
             routeData={routeData}
             activeRouteId={activeRouteId}
             isRouteMode={mode === 'route'}
+            dragLocation={reportLocation}
+            onDragLocationChange={(pos) => setReportLocation(pos)}
           />
 
           {/* Safe Route Navigator Panel */}
