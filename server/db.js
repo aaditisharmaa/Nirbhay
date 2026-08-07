@@ -11,17 +11,30 @@ dotenv.config();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// Resolve the database path. Priority:
+// 1. DATABASE_PATH env var (set in Render dashboard or render.yaml)
+// 2. /var/data (Render persistent disk) if it is already mounted and writable
+// 3. Local data/ directory (dev fallback — data is ephemeral on Render free tier)
+function resolveDbPath() {
+  if (process.env.DATABASE_PATH) {
+    return path.resolve(process.env.DATABASE_PATH);
+  }
+  if (process.env.NODE_ENV === 'production') {
+    try {
+      fs.accessSync('/var/data', fs.constants.W_OK);
+      return '/var/data/nirbhay.db';
+    } catch (_) {
+      console.warn('⚠️  /var/data not writable — using project-local storage. Add a Render disk at /var/data for persistence across deploys.');
+    }
+  }
+  return path.join(__dirname, '../data/nirbhay.db');
+}
+
 let db = null;
 
 try {
   const Database = (await import('better-sqlite3')).default;
-  // In production, prefer DATABASE_PATH env var (set via Render dashboard or render.yaml).
-  // Fall back to the Render persistent disk default mount path if not explicitly set.
-  const dbPath = process.env.DATABASE_PATH
-    ? path.resolve(process.env.DATABASE_PATH)
-    : process.env.NODE_ENV === 'production'
-      ? '/var/data/nirbhay.db'
-      : path.join(__dirname, '../data/nirbhay.db');
+  const dbPath = resolveDbPath();
   fs.mkdirSync(path.dirname(dbPath), { recursive: true });
 
   db = new Database(dbPath);
@@ -90,8 +103,7 @@ try {
   console.log('⚡ SQLite Database initialized successfully at:', dbPath);
 
 } catch (err) {
-  if (process.env.NODE_ENV === 'production') throw err;
-  console.warn('⚠️ SQLite native module unavailable, using in-memory JS fallback store:', err.message);
+  console.warn('⚠️ SQLite unavailable, using in-memory JS fallback store:', err.message);
 
   // Resilient In-Memory DB Fallback
   const memoryStore = {
