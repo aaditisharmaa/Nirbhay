@@ -3,8 +3,6 @@ import { AlertTriangle, Shield, CheckCircle, Phone, X, Radio } from './Icons';
 import { authenticatedHeaders } from '../utils/api';
 
 const HOLD_DURATION = 3000;
-const RADIUS = 30;
-const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
 
 export default function SosButton({ userLocation, user, onPromptEmergencyContact, isHighRisk = false }) {
   const [activeState, setActiveState] = useState('idle'); // idle | holding | alerting | confirmed
@@ -75,65 +73,42 @@ export default function SosButton({ userLocation, user, onPromptEmergencyContact
     }
   };
 
-  const strokeDashoffset = CIRCUMFERENCE * (1 - progress);
   const isHolding = activeState === 'holding';
 
   return (
     <>
-      {/* Floating SOS button — bottom left */}
+      {/* Floating SOS button — bottom left, pill shape */}
       <div className="fixed bottom-8 left-5 z-20 select-none">
-        <div className="relative flex items-center justify-center" style={{ width: 90, height: 90 }}>
-
-          {/* Outer glow ring — pulses only when in a high-risk area */}
-          <div className={`absolute inset-0 rounded-full bg-rose-600/20 ${isHighRisk && !isHolding ? 'animate-ping' : ''}`} />
-
-          {/* SVG progress ring */}
-          <svg className="absolute inset-0 -rotate-90" width="90" height="90">
-            {/* track */}
-            <circle cx="45" cy="45" r={RADIUS} fill="none" stroke="rgba(255,255,255,0.2)" strokeWidth="5" />
-            {/* fill */}
-            <circle
-              cx="45" cy="45" r={RADIUS}
-              fill="none"
-              stroke="white"
-              strokeWidth="5"
-              strokeLinecap="round"
-              strokeDasharray={CIRCUMFERENCE}
-              strokeDashoffset={strokeDashoffset}
-              style={{ transition: isHolding ? 'none' : 'stroke-dashoffset 0.3s ease' }}
+        <button
+          onMouseDown={startHold}
+          onMouseUp={cancelHold}
+          onMouseLeave={cancelHold}
+          onTouchStart={startHold}
+          onTouchEnd={cancelHold}
+          onTouchCancel={cancelHold}
+          disabled={activeState === 'alerting'}
+          className={`relative flex items-center gap-2 px-5 py-3.5 rounded-full text-white font-extrabold text-xs uppercase tracking-wider border-2 border-white transition-all disabled:opacity-60 overflow-hidden
+            bg-rose-600
+            ${isHighRisk ? 'shadow-[0_0_20px_rgba(225,29,72,0.6)]' : 'shadow-lg'}
+            ${isHolding ? 'scale-95' : 'active:scale-95'}
+          `}
+          aria-label="Hold 3 seconds to trigger SOS"
+        >
+          {/* Progress fill overlay */}
+          {isHolding && (
+            <span
+              className="absolute inset-0 bg-white/20 origin-left"
+              style={{ transform: `scaleX(${progress})`, transition: 'none' }}
             />
-          </svg>
-
-          {/* Main button */}
-          <button
-            onMouseDown={startHold}
-            onMouseUp={cancelHold}
-            onMouseLeave={cancelHold}
-            onTouchStart={startHold}
-            onTouchEnd={cancelHold}
-            onTouchCancel={cancelHold}
-            disabled={activeState === 'alerting'}
-            className={`relative w-[70px] h-[70px] rounded-full flex flex-col items-center justify-center gap-0.5
-              bg-rose-600 text-white font-extrabold
-              ${isHighRisk ? 'shadow-[0_0_24px_rgba(225,29,72,0.7)]' : 'shadow-lg'}
-              border-2 border-white
-              transition-transform duration-100 disabled:opacity-60
-              ${isHolding ? 'scale-95' : 'active:scale-95'}
-            `}
-            aria-label="Hold 3 seconds to trigger SOS"
-          >
-            <Radio className={`w-5 h-5 ${isHolding ? 'animate-ping' : isHighRisk ? 'animate-pulse' : ''}`} />
-            <span className="text-[8px] uppercase tracking-wider leading-none">
-              {isHolding ? 'HOLD…' : 'SOS'}
-            </span>
-          </button>
-
-        </div>
-
-        {/* Label below button */}
-        <p className="text-[9px] text-white/70 font-bold uppercase tracking-wider text-center mt-1">
-          {isHolding ? 'Keep holding…' : 'Hold 3s'}
-        </p>
+          )}
+          <Radio className={`w-4 h-4 relative z-10 ${isHolding ? 'animate-ping' : isHighRisk ? 'animate-pulse' : ''}`} />
+          <span className="relative z-10">
+            {isHolding ? `Hold… ${Math.ceil((1 - progress) * 3)}s` : 'SOS Emergency'}
+          </span>
+        </button>
+        {isHighRisk && !isHolding && (
+          <div className="absolute inset-0 rounded-full bg-rose-600/20 animate-ping pointer-events-none" />
+        )}
       </div>
 
       {/* Alerting / Confirmed overlay */}
