@@ -66,7 +66,6 @@ export default function App() {
   const [heatmapPoints, setHeatmapPoints] = useState([]);
 
   // Active UI Controls & Modals
-  const [activeTab, setActiveTab] = useState('MAP'); // 'MAP' | 'LIVE' | 'LIST'
   const [mode, setMode] = useState('explore'); // 'explore' | 'route'
   const [selectedZone, setSelectedZone] = useState(null);
   const [reportLocation, setReportLocation] = useState(null);
@@ -291,18 +290,16 @@ export default function App() {
 
           {/* Top Bar Navigation & Live Risk Status */}
           <TopHeader
-            activeTab={activeTab}
-            onTabChange={(tab) => {
-              setActiveTab(tab);
-              if (tab === 'LIVE' || tab === 'LIST') {
-                setIsFeedOpen(true);
-              } else {
+            mode={mode}
+            onModeChange={(newMode) => {
+              setMode(newMode);
+              if (newMode === 'explore') {
+                setRouteData(null);
                 setIsFeedOpen(false);
               }
             }}
-            radiusMeters={100}
+            locationStatus={locationStatus}
             onOpenSettings={() => setShowSettingsModal(true)}
-            onOpenMenu={() => setShowSettingsModal(true)}
           />
 
           {/* Feature 2: Nearby Hazards Panel (Open by default in Explore Mode) */}

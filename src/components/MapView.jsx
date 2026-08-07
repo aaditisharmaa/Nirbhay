@@ -1,86 +1,89 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useCallback } from 'react';
 import L from 'leaflet';
 import 'leaflet.heat';
 import { Plus, Compass } from './Icons';
 
-// Category → emoji shown inside the pin (matches CATEGORY_ICONS in seed.js)
-const CATEGORY_ICONS = {
+// ── Category colour palette — spread across the hue wheel for visual distinctness ──
+const CATEGORY_COLORS = {
+  'Poor Lighting':      '#7c3aed', // violet
+  'Harassment':         '#e11d48', // rose-600
+  'Stalking':           '#b91c1c', // red-700
+  'Deserted Area':      '#475569', // slate-600
+  'Theft & Snatching':  '#d97706', // amber-600
+  'Eve Teasing':        '#db2777', // pink-600
+  'Unsafe Transport':   '#0284c7', // sky-600
+  'Infrastructure':     '#78716c', // stone-500
+};
+
+// Single-codepoint glyphs safe in SVG <text>
+const CATEGORY_GLYPHS = {
   'Poor Lighting':      '\uD83D\uDD26', // 🔦
   'Harassment':         '!',
-  'Stalking':           '\uD83D\uDC41', // 👁
-  'Deserted Area':      '\uD83C\uDFDA', // 🏚
-  'Theft & Snatching':  '\uD83C\uDF92', // 🎒
-  'Eve Teasing':        '\u2715',       // ✕
-  'Unsafe Transport':   '\uD83D\uDE8C', // 🚌
-  'Infrastructure':     '\u26A0',       // ⚠ (single codepoint, no variation selector)
+  'Stalking':           '\uD83D\uDC41',
+  'Deserted Area':      '\uD83C\uDFDA',
+  'Theft & Snatching':  '\uD83C\uDF92',
+  'Eve Teasing':        '\u2715',
+  'Unsafe Transport':   '\uD83D\uDE8C',
+  'Infrastructure':     '\u26A0',
 };
 
-// Category → accent colour override (pin body colour based on category type)
-const CATEGORY_COLORS = {
-  'Poor Lighting':      { fill: '#7c3aed', glow: '#a78bfa' }, // purple — lighting
-  'Harassment':         { fill: '#f43f5e', glow: '#ec4899' }, // rose — harassment
-  'Stalking':           { fill: '#dc2626', glow: '#f87171' }, // red — stalking
-  'Deserted Area':      { fill: '#6b7280', glow: '#9ca3af' }, // grey — deserted
-  'Theft & Snatching':  { fill: '#d97706', glow: '#fbbf24' }, // amber — theft
-  'Eve Teasing':        { fill: '#be185d', glow: '#f472b6' }, // pink — eve teasing
-  'Unsafe Transport':   { fill: '#0369a1', glow: '#38bdf8' }, // blue — transport
-  'Infrastructure':     { fill: '#374151', glow: '#6b7280' }, // dark grey — infra
-};
+// ── Flat circular badge pin (no blur, no animation) ──────────────────────────
+// size: diameter of the circle in px
+// count: if >0, show a count badge top-right
+// showMoon: if true, show 🌙 bottom-left for dark-at-night zones
+function circlePinHtml(fill, glyph, size, count = 0, showMoon = false, isSelected = false) {
+  const r = size / 2;
+  const fontSize = Math.round(size * 0.36);
+  const borderColor = isSelected ? '#fff' : 'rgba(255,255,255,0.85)';
+  const borderWidth = isSelected ? 2.5 : 1.5;
+  const shadow = isSelected
+    ? `drop-shadow(0 0 6px ${fill}) drop-shadow(0 2px 4px rgba(0,0,0,0.5))`
+    : 'drop-shadow(0 2px 4px rgba(0,0,0,0.45))';
 
-// Teardrop SVG pin with emoji icon inside
-function pinSvg(fill, glow, size = 32, icon = '') {
-  const id = fill.replace('#', '');
-  const fontSize = Math.round(size * 0.38);
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${Math.round(size * 1.4)}" viewBox="0 0 40 56">
-    <defs>
-      <filter id="gf${id}" x="-60%" y="-60%" width="220%" height="220%">
-        <feGaussianBlur stdDeviation="3.5" result="blur"/>
-        <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
-      </filter>
-    </defs>
-    <path d="M20 2 C10.6 2 3 9.6 3 19 C3 30 20 54 20 54 C20 54 37 30 37 19 C37 9.6 29.4 2 20 2Z"
-      fill="${fill}" stroke="rgba(255,255,255,0.85)" stroke-width="1.5"
-      filter="url(#gf${id})"/>
-    <circle cx="20" cy="19" r="10" fill="rgba(255,255,255,0.92)"/>
-    ${icon ? `<text x="20" y="23" text-anchor="middle" font-size="${fontSize}" font-family="serif">${icon}</text>` : ''}
-  </svg>`;
+  const countBadge = count > 0 ? `
+    <div style="
+      position:absolute;top:-5px;right:-5px;
+      min-width:16px;height:16px;padding:0 3px;
+      border-radius:8px;
+      background:#ef4444;border:1.5px solid white;
+      color:white;font-size:9px;font-weight:900;font-family:sans-serif;
+      display:flex;align-items:center;justify-content:center;
+      line-height:1;
+    ">${count > 99 ? '99+' : count}</div>` : '';
+
+  const moonBadge = showMoon ? `
+    <div style="
+      position:absolute;bottom:-4px;left:-4px;
+      width:14px;height:14px;border-radius:50%;
+      background:rgba(30,0,80,0.85);border:1px solid rgba(167,139,250,0.8);
+      font-size:9px;display:flex;align-items:center;justify-content:center;
+      line-height:1;
+    ">\uD83C\uDF19</div>` : '';
+
+  return `<div style="
+    position:relative;
+    width:${size}px;height:${size}px;
+    border-radius:50%;
+    background:${fill};
+    border:${borderWidth}px solid ${borderColor};
+    display:flex;align-items:center;justify-content:center;
+    filter:${shadow};
+    box-sizing:border-box;
+  ">
+    <span style="font-size:${fontSize}px;line-height:1;display:block;">${glyph}</span>
+    ${countBadge}
+    ${moonBadge}
+  </div>`;
 }
 
-// User pin (dark body, white ring)
-function userPinSvg() {
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="40" height="56" viewBox="0 0 40 56">
-    <defs>
-      <filter id="ug" x="-60%" y="-60%" width="220%" height="220%">
-        <feGaussianBlur stdDeviation="4" result="blur"/>
-        <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
-      </filter>
-    </defs>
-    <path d="M20 2 C10.6 2 3 9.6 3 19 C3 30 20 54 20 54 C20 54 37 30 37 19 C37 9.6 29.4 2 20 2Z"
-      fill="rgba(15,23,42,0.9)" stroke="white" stroke-width="2.5" filter="url(#ug)"/>
-    <circle cx="20" cy="19" r="7" fill="white"/>
-    <circle cx="20" cy="19" r="3.5" fill="rgba(15,23,42,0.85)"/>
-  </svg>`;
-}
-
-// Radial hotspot glow — pink/magenta, scales with report count
-function hotspotGlowHtml(reportCount, radius) {
-  const t = Math.min(1, reportCount / 8);
-  const a1 = (0.07 + t * 0.13).toFixed(2);
-  const a2 = (0.13 + t * 0.17).toFixed(2);
-  const a3 = (0.28 + t * 0.28).toFixed(2);
-  const r1 = radius;
-  const r2 = Math.round(radius * 0.6);
-  return `
-    <div style="position:relative;width:${r1*2}px;height:${r1*2}px;pointer-events:none;">
-      <div style="position:absolute;inset:0;border-radius:50%;
-        background:radial-gradient(circle,rgba(236,72,153,${a1}) 0%,rgba(168,85,247,${a1}) 45%,transparent 70%);
-        animation:hotspotPulse ${(2.5-t*0.8).toFixed(1)}s ease-out infinite;"></div>
-      <div style="position:absolute;top:${r1-r2}px;left:${r1-r2}px;width:${r2*2}px;height:${r2*2}px;border-radius:50%;
-        background:radial-gradient(circle,rgba(244,63,94,${a2}) 0%,rgba(236,72,153,${a2}) 45%,transparent 70%);
-        animation:hotspotPulse ${(2.0-t*0.6).toFixed(1)}s ease-out infinite 0.35s;"></div>
-      <div style="position:absolute;top:${r1-18}px;left:${r1-18}px;width:36px;height:36px;border-radius:50%;
-        background:radial-gradient(circle,rgba(255,100,170,${a3}) 0%,transparent 70%);"></div>
-    </div>`;
+// User location — white dot with indigo ring
+function userDotHtml() {
+  return `<div style="
+    width:16px;height:16px;border-radius:50%;
+    background:#fff;
+    border:2.5px solid #4f46e5;
+    box-shadow:0 0 0 4px rgba(79,70,229,0.25),0 2px 6px rgba(0,0,0,0.4);
+  "></div>`;
 }
 
 export default function MapView({
@@ -95,16 +98,97 @@ export default function MapView({
   isRouteMode,
   targetLocation
 }) {
-  const mapRef = useRef(null);
-  const leafletMapInstance = useRef(null);
-  const heatLayerRef = useRef(null);
-  const markersGroupRef = useRef(null);
-  const glowGroupRef = useRef(null);
+  const mapRef               = useRef(null);
+  const leafletMapInstance   = useRef(null);
+  const heatLayerRef         = useRef(null);
+  const markersGroupRef      = useRef(null);
   const routePolylineGroupRef = useRef(null);
+  const debounceRef          = useRef(null);
+  // Keep latest props available in map event callbacks without re-binding
+  const zonesRef             = useRef(zones);
+  const selectedZoneRef      = useRef(selectedZone);
+  const userLocationRef      = useRef(userLocation);
+  const onSelectZoneRef      = useRef(onSelectZone);
+
+  useEffect(() => { zonesRef.current = zones; }, [zones]);
+  useEffect(() => { selectedZoneRef.current = selectedZone; }, [selectedZone]);
+  useEffect(() => { userLocationRef.current = userLocation; }, [userLocation]);
+  useEffect(() => { onSelectZoneRef.current = onSelectZone; }, [onSelectZone]);
 
   const defaultCenter = [userLocation.lat || 28.6328, userLocation.lng || 77.2195];
 
-  // 1. Init map with geographic tile
+  // ── Viewport-based marker rendering ──────────────────────────────────────
+  const renderVisibleMarkers = useCallback(() => {
+    const map = leafletMapInstance.current;
+    const group = markersGroupRef.current;
+    if (!map || !group) return;
+
+    group.clearLayers();
+
+    const bounds = map.getBounds().pad(0.15); // 15% padding beyond viewport
+    const zones = zonesRef.current;
+    const selectedZone = selectedZoneRef.current;
+    const userLoc = userLocationRef.current;
+
+    // User pin
+    if (userLoc.lat && userLoc.lng && !userLoc.denied) {
+      const uIcon = L.divIcon({
+        className: '',
+        html: userDotHtml(),
+        iconSize: [16, 16],
+        iconAnchor: [8, 8]
+      });
+      L.marker([userLoc.lat, userLoc.lng], { icon: uIcon })
+        .addTo(group)
+        .bindTooltip('You are here', { permanent: false, direction: 'top', className: 'nirbhay-tooltip' });
+    }
+
+    // Only render zones inside the padded viewport
+    zones.forEach(zone => {
+      if (!bounds.contains([zone.lat, zone.lng])) return;
+
+      try {
+        const isSelected    = selectedZone?.cellId === zone.cellId;
+        const isHigh        = zone.score > 65;
+        const isMod         = zone.score > 35;
+        const reportCount   = zone.reportCount || 0;
+
+        const dominantCat   = zone.categoryCounts
+          ? Object.entries(zone.categoryCounts).sort((a, b) => b[1] - a[1])[0]?.[0]
+          : null;
+        const fill   = CATEGORY_COLORS[dominantCat] ?? (isHigh ? '#e11d48' : isMod ? '#d97706' : '#0284c7');
+        const glyph  = CATEGORY_GLYPHS[dominantCat] ?? '!';
+        const size   = isHigh ? 36 : isMod ? 28 : 22;
+
+        const isNight      = zone.signals?.isDaytime === false;
+        const dimLighting  = (zone.signals?.streetlightsCount ?? 0) < 2;
+        const showMoon     = isNight && dimLighting;
+        // Count badge: show only for hotspots (3+ reports), cap at 99
+        const badgeCount   = reportCount >= 3 ? reportCount : 0;
+
+        const icon = L.divIcon({
+          className: '',
+          html: circlePinHtml(fill, glyph, size, badgeCount, showMoon, isSelected),
+          iconSize:   [size + 14, size + 14],  // extra room for count/moon badges
+          iconAnchor: [(size + 14) / 2, (size + 14) / 2]
+        });
+
+        L.marker([zone.lat, zone.lng], { icon })
+          .on('click', () => onSelectZoneRef.current(zone))
+          .addTo(group);
+      } catch (e) {
+        console.warn('Marker error zone', zone.cellId, e.message);
+      }
+    });
+  }, []); // stable — reads from refs
+
+  // Debounced re-render on map move/zoom
+  const scheduleRender = useCallback(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(renderVisibleMarkers, 120);
+  }, [renderVisibleMarkers]);
+
+  // 1. Init map
   useEffect(() => {
     if (!mapRef.current || leafletMapInstance.current) return;
 
@@ -112,34 +196,35 @@ export default function MapView({
       center: defaultCenter,
       zoom: 14,
       zoomControl: false,
-      attributionControl: false
+      attributionControl: false,
+      preferCanvas: true,   // faster DOM rendering
+      zoomSnap: 0.5,        // smoother zoom steps
     });
 
-    // Esri World Imagery -- real satellite photos (same Maxar/Airbus provider as Google satellite)
     L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
       maxZoom: 19,
-      attribution: 'Tiles &copy; Esri &mdash; Source: Esri, Maxar, GeoEye, Earthstar Geographics'
+      attribution: 'Tiles &copy; Esri'
     }).addTo(map);
 
-    // Label overlay -- place names, road names, POIs on top of satellite
     L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Transportation/MapServer/tile/{z}/{y}/{x}', {
-      maxZoom: 19,
-      opacity: 0.8
+      maxZoom: 19, opacity: 0.8
     }).addTo(map);
 
     L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', {
-      maxZoom: 19,
-      opacity: 0.9
+      maxZoom: 19, opacity: 0.9
     }).addTo(map);
 
     L.control.zoom({ position: 'bottomright' }).addTo(map);
 
-    glowGroupRef.current = L.layerGroup().addTo(map);
-    markersGroupRef.current = L.layerGroup().addTo(map);
+    markersGroupRef.current      = L.layerGroup().addTo(map);
     routePolylineGroupRef.current = L.layerGroup().addTo(map);
-    leafletMapInstance.current = map;
+    leafletMapInstance.current   = map;
+
+    // Re-render markers on viewport change (debounced)
+    map.on('moveend zoomend', scheduleRender);
 
     return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
       if (leafletMapInstance.current) {
         leafletMapInstance.current.remove();
         leafletMapInstance.current = null;
@@ -171,137 +256,29 @@ export default function MapView({
     }
   };
 
-  // 3. Heatmap -- warm colours that stand out on the light geographic base
+  // 3. Heatmap
   useEffect(() => {
     const map = leafletMapInstance.current;
     if (!map) return;
     if (heatLayerRef.current) map.removeLayer(heatLayerRef.current);
     if (heatmapPoints?.length > 0 && L.heatLayer) {
       heatLayerRef.current = L.heatLayer(heatmapPoints, {
-        radius: 34,
-        blur: 24,
-        maxZoom: 16,
-        max: 1.0,
+        radius: 34, blur: 24, maxZoom: 16, max: 1.0,
         gradient: {
-          0.0: 'rgba(99,102,241,0)',
-          0.2: 'rgba(99,102,241,0.3)',
-          0.5: 'rgba(245,158,11,0.45)',
+          0.0:  'rgba(99,102,241,0)',
+          0.2:  'rgba(99,102,241,0.3)',
+          0.5:  'rgba(245,158,11,0.45)',
           0.75: 'rgba(239,68,68,0.6)',
-          1.0: 'rgba(236,72,153,0.75)'
+          1.0:  'rgba(236,72,153,0.75)'
         }
       }).addTo(map);
     }
   }, [heatmapPoints]);
 
-  // 4. Glow overlays + teardrop pins
+  // 4. Re-render markers when zones or selection changes
   useEffect(() => {
-    const map = leafletMapInstance.current;
-    if (!map || !markersGroupRef.current || !glowGroupRef.current) return;
-
-    markersGroupRef.current.clearLayers();
-    glowGroupRef.current.clearLayers();
-
-    // User pin
-    if (userLocation.lat && userLocation.lng && !userLocation.denied) {
-      const uIcon = L.divIcon({
-        className: '',
-        html: userPinSvg(),
-        iconSize: [40, 56],
-        iconAnchor: [20, 54]
-      });
-      L.marker([userLocation.lat, userLocation.lng], { icon: uIcon })
-        .addTo(markersGroupRef.current)
-        .bindTooltip('You are here', { permanent: false, direction: 'top', className: 'nirbhay-tooltip' });
-    }
-
-    // Zone markers
-    zones.forEach(zone => {
-      try {
-        const isSelected  = selectedZone?.cellId === zone.cellId;
-      const isHigh      = zone.score > 65;
-      const isMod       = zone.score > 35;
-      const reportCount = zone.reportCount || 0;
-
-      // Dominant category drives colour and icon
-      const dominantCategory = zone.categoryCounts
-        ? Object.entries(zone.categoryCounts).sort((a, b) => b[1] - a[1])[0]?.[0]
-        : null;
-      const catColor = dominantCategory && CATEGORY_COLORS[dominantCategory]
-        ? CATEGORY_COLORS[dominantCategory]
-        : { fill: isHigh ? '#f43f5e' : isMod ? '#f59e0b' : '#06b6d4',
-            glow: isHigh ? '#ec4899' : isMod ? '#fbbf24' : '#67e8f9' };
-      const catIcon = dominantCategory ? (CATEGORY_ICONS[dominantCategory] || '⚠️') : '⚠️';
-      const pSize = isHigh ? 38 : isMod ? 30 : 24;
-
-      // ── Night-mode dim-area indicator ──────────────────────────────────────
-      // If it's nighttime AND the zone has low/no streetlights, show a
-      // semi-transparent dark moon overlay ring around the pin to signal danger
-      const isNight     = zone.signals?.isDaytime === false;
-      const dimLighting = (zone.signals?.streetlightsCount ?? 0) < 2;
-      const showNightWarning = isNight && dimLighting;
-
-      if (showNightWarning) {
-        const nr = Math.round(pSize * 1.8);
-        const nightIcon = L.divIcon({
-          className: '',
-          html: `<div style="
-            position:relative;width:${nr*2}px;height:${nr*2}px;
-            display:flex;align-items:center;justify-content:center;
-            pointer-events:none;">
-            <div style="
-              width:${nr*2}px;height:${nr*2}px;border-radius:50%;
-              background:radial-gradient(circle,rgba(30,0,60,0.22) 0%,rgba(88,28,220,0.12) 50%,transparent 70%);
-              border:1.5px dashed rgba(167,139,250,0.55);
-              animation:hotspotPulse 3s ease-out infinite;
-            "></div>
-            <div style="
-              position:absolute;top:-6px;right:-4px;
-              font-size:14px;line-height:1;
-              filter:drop-shadow(0 0 4px rgba(167,139,250,0.9));
-            ">🌙</div>
-          </div>`,
-          iconSize: [nr * 2, nr * 2],
-          iconAnchor: [nr, nr]
-        });
-        L.marker([zone.lat, zone.lng], { icon: nightIcon, interactive: false })
-          .addTo(glowGroupRef.current);
-      }
-      // ──────────────────────────────────────────────────────────────────────
-
-      // Hotspot glow for high-risk or 3+ reports
-      if (isHigh || reportCount >= 3) {
-        const gr = Math.min(120, 55 + reportCount * 8);
-        const glowIcon = L.divIcon({
-          className: '',
-          html: hotspotGlowHtml(reportCount, gr),
-          iconSize: [gr * 2, gr * 2],
-          iconAnchor: [gr, gr]
-        });
-        L.marker([zone.lat, zone.lng], { icon: glowIcon, interactive: false })
-          .addTo(glowGroupRef.current);
-      }
-
-      // Selection ring
-      const selRing = isSelected
-        ? `<div style="position:absolute;top:-5px;left:-5px;width:${pSize+10}px;height:${Math.round(pSize*1.4)+10}px;border-radius:50% 50% 40% 40%/55% 55% 45% 45%;border:2.5px solid rgba(255,255,255,0.9);pointer-events:none;box-shadow:0 0 10px rgba(255,255,255,0.6);"></div>`
-        : '';
-
-      const pinIcon = L.divIcon({
-        className: '',
-        html: `<div style="position:relative;display:inline-block;">${selRing}${pinSvg(catColor.fill, catColor.glow, pSize, catIcon)}</div>`,
-        iconSize: [pSize, Math.round(pSize * 1.4)],
-        iconAnchor: [pSize / 2, Math.round(pSize * 1.4)]
-      });
-
-      L.marker([zone.lat, zone.lng], { icon: pinIcon })
-        .on('click', () => onSelectZone(zone))
-        .addTo(markersGroupRef.current);
-      } catch (e) {
-        console.warn('Marker render error for zone', zone.cellId, e.message);
-      }
-    });
-
-  }, [zones, selectedZone, userLocation]);
+    renderVisibleMarkers();
+  }, [zones, selectedZone, userLocation, renderVisibleMarkers]);
 
   // 5. Route polylines
   useEffect(() => {
@@ -324,21 +301,20 @@ export default function MapView({
     <div className="relative w-full h-full">
       <div ref={mapRef} className="w-full h-full" />
 
-      {/* Category legend */}
-      <div className="absolute top-20 left-1/2 -translate-x-1/2 z-20 flex items-center gap-3 px-4 py-1.5 rounded-full bg-slate-900/75 backdrop-blur-sm border border-white/15 shadow text-xs font-semibold text-white/90 pointer-events-none flex-wrap justify-center max-w-sm">
-        <span className="font-bold text-white/50 text-[10px]">Hazards:</span>
+      {/* Compact category legend */}
+      <div className="absolute top-20 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 px-3 py-1 rounded-full bg-slate-900/80 backdrop-blur-sm border border-white/10 shadow text-[10px] font-semibold text-white/80 pointer-events-none flex-wrap justify-center max-w-xs">
         {[
-          { icon:'🔦', label:'Lighting', color:'#7c3aed' },
-          { icon:'⚠️', label:'Harassment', color:'#f43f5e' },
-          { icon:'🎒', label:'Theft', color:'#d97706' },
-          { icon:'👁', label:'Stalking', color:'#dc2626' },
-          { icon:'🚫', label:'Eve Teasing', color:'#be185d' },
-          { icon:'🏚', label:'Deserted', color:'#6b7280' },
-          { icon:'🌙', label:'Dark at Night', color:'#7c3aed' },
-        ].map(({ icon, label, color }) => (
+          { color:'#7c3aed', label:'Lighting' },
+          { color:'#e11d48', label:'Harassment' },
+          { color:'#d97706', label:'Theft' },
+          { color:'#b91c1c', label:'Stalking' },
+          { color:'#db2777', label:'Eve Teasing' },
+          { color:'#475569', label:'Deserted' },
+          { color:'#0284c7', label:'Transport' },
+        ].map(({ color, label }) => (
           <span key={label} className="flex items-center gap-1">
-            <span>{icon}</span>
-            <span className="text-[10px]" style={{ color }}>{label}</span>
+            <span style={{ width:8,height:8,borderRadius:'50%',background:color,display:'inline-block',flexShrink:0 }}/>
+            {label}
           </span>
         ))}
       </div>

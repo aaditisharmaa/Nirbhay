@@ -12,15 +12,21 @@ export default function SafetyToolsPanel({ userLocation, user, onSOSTriggered, o
   return (
     <>
       {/* Floating toggle pill button — left side, clear of SOS button */}
-      <div className="fixed bottom-36 left-5 z-20">
+      <div className="fixed bottom-20 left-5 z-20">
         <button
           onClick={() => setOpen(prev => !prev)}
-          className="flex items-center gap-2 px-4 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xs uppercase tracking-wider rounded-full shadow-xl border-2 border-white transition-all active:scale-95"
+          className="flex items-center gap-2 px-4 py-2.5 font-extrabold text-xs uppercase tracking-wider rounded-full transition-all active:scale-95 text-white"
+          style={{
+            background: 'rgba(11,15,46,0.88)',
+            border: '1px solid rgba(99,102,241,0.5)',
+            boxShadow: '0 0 14px rgba(99,102,241,0.35)',
+            backdropFilter: 'blur(8px)'
+          }}
           title="Quick Safety Tools"
         >
-          <Shield className="w-4 h-4" />
+          <Shield className="w-4 h-4 text-indigo-300" />
           <span>Safety Tools</span>
-          {open ? <ChevronDown className="w-3 h-3" /> : <ChevronUp className="w-3 h-3" />}
+          {open ? <ChevronDown className="w-3 h-3 text-indigo-300" /> : <ChevronUp className="w-3 h-3 text-indigo-300" />}
         </button>
       </div>
 

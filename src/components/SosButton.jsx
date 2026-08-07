@@ -87,11 +87,17 @@ export default function SosButton({ userLocation, user, onPromptEmergencyContact
           onTouchEnd={cancelHold}
           onTouchCancel={cancelHold}
           disabled={activeState === 'alerting'}
-          className={`relative flex items-center gap-2 px-5 py-3.5 rounded-full text-white font-extrabold text-xs uppercase tracking-wider border-2 border-white transition-all disabled:opacity-60 overflow-hidden
-            bg-rose-600
-            ${isHighRisk ? 'shadow-[0_0_20px_rgba(225,29,72,0.6)]' : 'shadow-lg'}
-            ${isHolding ? 'scale-95' : 'active:scale-95'}
-          `}
+          className={`relative flex items-center gap-2 px-5 py-2.5 rounded-full text-white font-extrabold text-xs uppercase tracking-wider transition-all disabled:opacity-60 overflow-hidden ${isHolding ? 'scale-95' : 'active:scale-95'}`}
+          style={{
+            background: isHighRisk
+              ? 'rgba(190,18,60,0.92)'
+              : 'rgba(127,17,47,0.88)',
+            border: `1px solid ${isHighRisk ? 'rgba(251,113,133,0.7)' : 'rgba(251,113,133,0.4)'}`,
+            boxShadow: isHighRisk
+              ? '0 0 20px rgba(225,29,72,0.55)'
+              : '0 0 10px rgba(225,29,72,0.25)',
+            backdropFilter: 'blur(8px)',
+          }}
           aria-label="Hold 3 seconds to trigger SOS"
         >
           {/* Progress fill overlay */}

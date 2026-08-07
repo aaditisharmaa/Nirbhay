@@ -124,7 +124,7 @@ export default function ReportModal({ userLocation = {}, user, onClose, onReport
     try {
       const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(searchQuery + ', Delhi')}`);
       const data = await res.json();
-      if (data && data.length > 0) {
+      if (Array.isArray(data) && data.length > 0) {
         const newLat = parseFloat(data[0].lat);
         const newLng = parseFloat(data[0].lon);
         
