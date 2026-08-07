@@ -55,7 +55,7 @@ async function refreshDaytimeContext() {
 function toPublicZone(zone) {
   return {
     ...zone,
-    reports: zone.reports.map(({ id, category, severity, confirm_count, created_at }) => ({
+    reports: (zone.reports ?? []).map(({ id, category, severity, confirm_count, created_at }) => ({
       id,
       category,
       severity,
@@ -236,14 +236,16 @@ router.post('/nearby-summary', async (req, res) => {
 
 // GET /api/live-status - Get live risk level for user's lat/lng
 router.get('/live-status', async (req, res) => {
-  const coordinates = parseCoordinates(req.query.lat, req.query.lng);
-  if (!coordinates) {
-    return res.status(400).json({ error: 'lat and lng required' });
+  try {
+    const coordinates = parseCoordinates(req.query.lat, req.query.lng);
+    if (!coordinates) return res.status(400).json({ error: 'lat and lng required' });
+    const daytimeByDistrict = await refreshDaytimeContext();
+    const zones = computeAllGridScores(cachedOsmFeatures, { daytimeByDistrict });
+    const status = getPointRiskStatus(coordinates.lat, coordinates.lng, zones);
+    res.json({ success: true, status });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
-  const daytimeByDistrict = await refreshDaytimeContext();
-  const zones = computeAllGridScores(cachedOsmFeatures, { daytimeByDistrict });
-  const status = getPointRiskStatus(coordinates.lat, coordinates.lng, zones);
-  res.json({ success: true, status });
 });
 
 // POST /api/reports - Submit a new report with AI classification
@@ -349,8 +351,8 @@ router.post('/routes', async (req, res) => {
       return res.status(404).json(routeResult);
     }
 
-    const safeRoute = routeResult.routes.find(r => r.id === routeResult.safeRouteId);
-    const fastestRoute = routeResult.routes.find(r => r.id === routeResult.fastestRouteId);
+    const safeRoute = routeResult.routes.find(r => r.id === routeResult.safeRouteId) ?? routeResult.routes[0];
+    const fastestRoute = routeResult.routes.find(r => r.id === routeResult.fastestRouteId) ?? routeResult.routes[0];
 
     // Call Claude AI for 1-line route comparison summary
     const aiSummary = await generateRouteSummaryAi(safeRoute, fastestRoute);
@@ -491,7 +493,7 @@ router.post('/seed', (req, res) => {
   try {
     seedDatabase(true);
     const zones = computeAllGridScores(cachedOsmFeatures);
-    const totalReports = db.prepare('SELECT COUNT(*) as count FROM reports').get().count;
+    const totalReports = db.prepare('SELECT COUNT(*) as count FROM reports').get()?.count ?? 0;
     res.json({
       success: true,
       totalReports,
@@ -505,16 +507,14 @@ router.post('/seed', (req, res) => {
 
 // GET /api/stats - Public system counters
 router.get('/stats', (req, res) => {
-  const totalReports = db.prepare('SELECT COUNT(*) as count FROM reports').get().count;
-  const zones = computeAllGridScores(cachedOsmFeatures);
-  const activeAlerts = db.prepare('SELECT COUNT(*) as count FROM sos_alerts').get().count;
-
-  res.json({
-    success: true,
-    totalReports,
-    zonesMapped: zones.length,
-    activeAlerts
-  });
+  try {
+    const totalReports = db.prepare('SELECT COUNT(*) as count FROM reports').get()?.count ?? 0;
+    const zones = computeAllGridScores(cachedOsmFeatures);
+    const activeAlerts = db.prepare('SELECT COUNT(*) as count FROM sos_alerts').get()?.count ?? 0;
+    res.json({ success: true, totalReports, zonesMapped: zones.length, activeAlerts });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 export default router;

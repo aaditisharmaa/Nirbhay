@@ -3,11 +3,12 @@ import { AlertTriangle, X } from './Icons';
 
 export default function ToastNotification({ message, onClose }) {
   useEffect(() => {
+    if (!message) return;
     const timer = setTimeout(() => {
       onClose();
     }, 4500);
     return () => clearTimeout(timer);
-  }, [onClose]);
+  }, [message, onClose]);
 
   if (!message) return null;
 

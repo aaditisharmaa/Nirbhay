@@ -1,5 +1,3 @@
-import db from '../db.js';
-
 // Bounding box for Delhi NCR region (covering Delhi, Gurgaon, Noida, Ghaziabad, Faridabad)
 const DELHI_BBOX = '28.30,76.90,28.85,77.60';
 

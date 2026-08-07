@@ -12,9 +12,10 @@ export default function Splash({ onFinish, onLocationReady, onDataLoaded }) {
     const geoOptions = { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 };
 
     // 1. Precise Geolocation Request
+    let geoWatchId = null;
     if ('geolocation' in navigator) {
       setStatusText('Acquiring high-precision location telemetry...');
-      navigator.geolocation.watchPosition(
+      geoWatchId = navigator.geolocation.watchPosition(
         (pos) => {
           if (!isMounted) return;
           const loc = { lat: pos.coords.latitude, lng: pos.coords.longitude };
@@ -58,6 +59,7 @@ export default function Splash({ onFinish, onLocationReady, onDataLoaded }) {
 
     return () => {
       isMounted = false;
+      if (geoWatchId !== null) navigator.geolocation.clearWatch(geoWatchId);
       clearTimeout(timer1);
       clearTimeout(timer2);
       clearTimeout(timer3);

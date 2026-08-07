@@ -280,10 +280,10 @@ export function computeAllGridScores(
 
     let locationName = 'Community Risk Zone';
     if (cell.reports.length > 0 && cell.reports[0].description) {
-      locationName = cell.reports[0].description.split('near')[1]
-        || cell.reports[0].description.split('at')[1]
+      const desc = cell.reports[0].description;
+      locationName = desc.split('near')[1]?.split('.')[0]?.trim()
+        || desc.split('at')[1]?.split('.')[0]?.trim()
         || locationName;
-      if (typeof locationName === 'string') locationName = locationName.split('.')[0].trim();
     }
 
     scoredZones.push({

@@ -58,8 +58,7 @@ export default function LoginModal({ onLoginSuccess }) {
     setLoading(true);
     setError(null);
     try {
-      const { signInWithGoogle: doGoogle } = await import('../utils/firebase');
-      const user = await doGoogle();
+      const user = await signInWithGoogle();
       const headers = await getAuthHeaders();
       const synced = await syncUser(user, headers);
       localStorage.setItem('nirbhay_user', JSON.stringify(synced));
