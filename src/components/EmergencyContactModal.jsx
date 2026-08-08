@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Phone, Shield, X, MapPin, CheckCircle } from './Icons';
+import { Phone, Shield, X, MapPin, CheckCircle, PhoneCall } from './Icons';
 import { authenticatedHeaders } from '../utils/api';
 
 export default function EmergencyContactModal({ user, onComplete, onSkip }) {
@@ -129,7 +129,7 @@ export default function EmergencyContactModal({ user, onComplete, onSkip }) {
             className="w-full flex items-center justify-center gap-2 py-2.5 text-xs font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 rounded-xl border border-indigo-200 transition-all"
           >
             <MapPin className="w-4 h-4" />
-            {sharing ? 'Getting location…' : '📍 Share My Location Now'}
+            {sharing ? 'Getting location…' : 'Share My Location Now'}
           </button>
           {shareStatus && (
             <p className="text-[11px] text-center text-slate-500">{shareStatus}</p>

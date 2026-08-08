@@ -1,5 +1,5 @@
 import React, { useState, useRef, useCallback } from 'react';
-import { AlertTriangle, Shield, CheckCircle, Phone, X, Radio } from './Icons';
+import { AlertTriangle, Shield, CheckCircle, Phone, PhoneCall, X, Radio, MapPin } from './Icons';
 import { authenticatedHeaders } from '../utils/api';
 
 const HOLD_DURATION = 3000;
@@ -138,9 +138,9 @@ export default function SosButton({ userLocation, user, onPromptEmergencyContact
                 <a
                   href="tel:112"
                   className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-white font-bold text-xs"
-                  style={{background:'rgba(220,38,38,0.9)',border:'1px solid rgba(252,165,165,0.4)'}}
+                  style={{background:'rgba(185,28,28,0.9)',border:'1px solid rgba(252,165,165,0.4)'}}
                 >
-                  🚔 Call 112 — Police
+                  <PhoneCall className="w-4 h-4" /> Call 112 — Police
                 </a>
               </div>
             ) : (
@@ -172,9 +172,9 @@ export default function SosButton({ userLocation, user, onPromptEmergencyContact
                 <a
                   href="tel:112"
                   className="w-full py-3 flex items-center justify-center gap-2 rounded-xl font-bold text-xs text-white transition-all"
-                  style={{background:'rgba(220,38,38,0.9)',border:'1px solid rgba(252,165,165,0.35)'}}
+                  style={{background:'rgba(185,28,28,0.9)',border:'1px solid rgba(252,165,165,0.35)'}}
                 >
-                  🚔 Call 112 — Police Emergency
+                  <PhoneCall className="w-4 h-4" /> Call 112 — Police Emergency
                 </a>
 
                 <button
@@ -182,7 +182,7 @@ export default function SosButton({ userLocation, user, onPromptEmergencyContact
                     const lat = sosDetails?.lat || 28.6328;
                     const lng = sosDetails?.lng || 77.2195;
                     const url = `https://www.google.com/maps?q=${lat},${lng}`;
-                    const text = `🚨 I need help! My location: ${url}`;
+                    const text = `I need help! My location: ${url}`;
                     if (navigator.share) {
                       try { await navigator.share({ title: 'My Location', text, url }); } catch (_) {}
                     } else {
@@ -191,7 +191,7 @@ export default function SosButton({ userLocation, user, onPromptEmergencyContact
                   }}
                   className="w-full py-3 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold text-xs rounded-xl border border-indigo-200 transition-all flex items-center justify-center gap-2"
                 >
-                  📍 Share Location via WhatsApp / SMS
+                  <MapPin className="w-4 h-4" /> Share Location via WhatsApp / SMS
                 </button>
 
                 <button

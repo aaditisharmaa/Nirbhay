@@ -9,7 +9,9 @@ import {
   Settings, 
   CheckCircle, 
   User, 
-  Phone, 
+  Phone,
+  PhoneCall,
+  PhoneIncoming,
   LogOut, 
   Sun, 
   Moon, 
@@ -27,7 +29,9 @@ import {
   Bell,
   Sliders,
   Gauge,
-  Target
+  Target,
+  Mic,
+  Siren
 } from 'lucide-react';
 
 export {
@@ -41,6 +45,8 @@ export {
   CheckCircle,
   User,
   Phone,
+  PhoneCall,
+  PhoneIncoming,
   LogOut,
   Sun,
   Moon,
@@ -58,7 +64,9 @@ export {
   Bell,
   Sliders,
   Gauge,
-  Target
+  Target,
+  Mic,
+  Siren
 };
 
 // Custom Guardian Shield SVG Logo Icon
