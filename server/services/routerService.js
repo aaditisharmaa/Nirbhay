@@ -25,8 +25,18 @@ export async function getScoredRoutes(origin, destination, gridZones = [], trave
     const evaluatedRoutes = rawRoutes.map((route, idx) => {
       const coordinates = route.geometry.coordinates.map(([lng, lat]) => [lat, lng]);
 
-      // OSRM duration is in seconds, profile-specific (foot ≈ 5 km/h, driving ≈ actual road speed)
-      const durationMins = Math.max(1, Math.round(route.duration / 60));
+      // OSRM duration is in seconds for the given profile.
+      // However, the public OSRM demo server sometimes returns identical durations
+      // across profiles. As a reliable fallback, calculate from distance + realistic speed.
+      const osrmMins = Math.max(1, Math.round(route.duration / 60));
+      const speedKmh = travelMode === 'vehicle' ? 28 : 4.5; // realistic urban speeds
+      const calcMins = Math.max(1, Math.round((route.distance / 1000) / speedKmh * 60));
+      // Use OSRM value only if it's meaningfully different from walking speed calc;
+      // otherwise trust our own calculation which uses mode-correct speed.
+      const walkCalc = Math.max(1, Math.round((route.distance / 1000) / 4.5 * 60));
+      const durationMins = (travelMode === 'vehicle' && Math.abs(osrmMins - walkCalc) < 3)
+        ? calcMins   // OSRM returned a walking-like duration for a driving query — use our calc
+        : osrmMins;  // OSRM gave a sensible driving duration — trust it
       const distanceKm = (route.distance / 1000).toFixed(1);
 
       let totalPathRiskScore = 0;
@@ -62,8 +72,8 @@ export async function getScoredRoutes(origin, destination, gridZones = [], trave
         coordinates,
         // Speed context for display
         speedContext: travelMode === 'vehicle'
-          ? `~${SPEED_KMPH.vehicle} km/h avg`
-          : `~${SPEED_KMPH.walking} km/h walking`,
+          ? `~${Math.round((route.distance / 1000) / (durationMins / 60))} km/h avg`
+          : `~5 km/h walking`,
       };
     });
 

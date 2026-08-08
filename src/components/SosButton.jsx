@@ -31,8 +31,9 @@ export default function SosButton({ userLocation, user, onPromptEmergencyContact
     e.preventDefault();
     if (activeState !== 'idle') return;
 
-    const savedContact = user ? user.emergency_contact : null;
-    if (!savedContact) {
+    // Check any contact exists (new multi-contact or legacy single)
+    const contacts = user?.emergency_contacts ?? (user?.emergency_contact ? [user.emergency_contact] : []);
+    if (contacts.length === 0) {
       onPromptEmergencyContact();
       return;
     }
@@ -152,7 +153,9 @@ export default function SosButton({ userLocation, user, onPromptEmergencyContact
                 <div className="bg-slate-50 border border-slate-200 p-3 rounded-2xl text-left space-y-2">
                   <p className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
                     <Phone className="w-4 h-4 text-indigo-600" />
-                    Emergency contact notified
+                    {sosDetails?.contactsAlerted > 1
+                      ? `${sosDetails.contactsAlerted} emergency contacts notified`
+                      : 'Emergency contact notified'}
                   </p>
                   <p className="text-[11px] text-slate-600 leading-relaxed font-mono bg-white p-2 rounded-xl border border-slate-100">
                     "{sosDetails?.messageBody}"
@@ -173,6 +176,23 @@ export default function SosButton({ userLocation, user, onPromptEmergencyContact
                 >
                   🚔 Call 112 — Police Emergency
                 </a>
+
+                <button
+                  onClick={async () => {
+                    const lat = sosDetails?.lat || 28.6328;
+                    const lng = sosDetails?.lng || 77.2195;
+                    const url = `https://www.google.com/maps?q=${lat},${lng}`;
+                    const text = `🚨 I need help! My location: ${url}`;
+                    if (navigator.share) {
+                      try { await navigator.share({ title: 'My Location', text, url }); } catch (_) {}
+                    } else {
+                      await navigator.clipboard.writeText(text);
+                    }
+                  }}
+                  className="w-full py-3 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold text-xs rounded-xl border border-indigo-200 transition-all flex items-center justify-center gap-2"
+                >
+                  📍 Share Location via WhatsApp / SMS
+                </button>
 
                 <button
                   onClick={() => setActiveState('idle')}

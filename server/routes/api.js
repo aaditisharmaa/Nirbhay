@@ -387,9 +387,15 @@ router.post('/sos', requireAuthenticatedUser, async (req, res) => {
     }
     const userId = req.user.uid;
 
-    const user = db.prepare('SELECT emergency_contact FROM users WHERE id = ?').get(userId);
-    const emergencyContact = user ? user.emergency_contact : null;
-    if (!emergencyContact) {
+    const user = db.prepare('SELECT emergency_contact, emergency_contacts FROM users WHERE id = ?').get(userId);
+
+    // Resolve all contacts (new multi-contact or legacy single)
+    let allContacts = [];
+    try { allContacts = user?.emergency_contacts ? JSON.parse(user.emergency_contacts) : []; }
+    catch (_) { allContacts = []; }
+    if (allContacts.length === 0 && user?.emergency_contact) allContacts = [user.emergency_contact];
+
+    if (allContacts.length === 0) {
       return res.status(400).json({ error: 'Add an emergency contact before sending an SOS.' });
     }
 
@@ -412,19 +418,26 @@ router.post('/sos', requireAuthenticatedUser, async (req, res) => {
       mapUrl
     });
 
-    const sosResult = await sendSosAlert({
-      userId,
-      lat: coordinates.lat,
-      lng: coordinates.lng,
-      zoneRiskInfo: pointStatus.zone,
-      emergencyContact,
-      customMessageBody
-    });
+    // Send to all contacts, collect results
+    const smsResults = await Promise.allSettled(
+      allContacts.map(contact => sendSosAlert({
+        userId, lat: coordinates.lat, lng: coordinates.lng,
+        zoneRiskInfo: pointStatus.zone, emergencyContact: contact, customMessageBody
+      }))
+    );
+    const primaryResult = smsResults[0]?.value ?? { smsSent: false };
 
-    if (!sosResult.smsSent) {
-      return res.status(503).json({ success: false, error: 'SOS was logged, but the SMS provider did not accept the alert. Call local emergency services now.', ...sosResult });
+    // Also broadcast a community alert to nearby users within 1km
+    try {
+      const communityMsg = `🚨 SOS ALERT: Someone nearby needs immediate help. Location: ${mapUrl}. Please check if you can assist safely.`;
+      db.prepare('INSERT INTO community_alerts (id, user_id, lat, lng, message) VALUES (?, ?, ?, ?, ?)')
+        .run(`sos_ca_${crypto.randomUUID()}`, userId, coordinates.lat, coordinates.lng, communityMsg);
+    } catch (_) { /* non-fatal */ }
+
+    if (!primaryResult.smsSent) {
+      return res.status(503).json({ success: false, error: 'SOS logged, but SMS provider did not accept the alert. Call emergency services now.', ...primaryResult });
     }
-    res.json({ success: true, ...sosResult });
+    res.json({ success: true, contactsAlerted: allContacts.length, ...primaryResult });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

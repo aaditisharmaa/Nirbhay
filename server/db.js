@@ -106,12 +106,23 @@ try {
     );
   `);
 
-  // Existing databases need this additive migration.
+  // Additive migrations for existing databases
+  try { db.exec('ALTER TABLE reports ADD COLUMN is_likely_spam INTEGER DEFAULT 0'); }
+  catch (e) { if (!String(e.message).includes('duplicate column name')) throw e; }
+
+  // Multiple emergency contacts stored as a JSON array (up to 3)
+  try { db.exec('ALTER TABLE users ADD COLUMN emergency_contacts TEXT DEFAULT NULL'); }
+  catch (e) { if (!String(e.message).includes('duplicate column name')) throw e; }
+
+  // Migrate existing single contact into the new array column
   try {
-    db.exec('ALTER TABLE reports ADD COLUMN is_likely_spam INTEGER DEFAULT 0');
-  } catch (error) {
-    if (!String(error.message).includes('duplicate column name')) throw error;
-  }
+    db.exec(`
+      UPDATE users
+      SET emergency_contacts = json_array(emergency_contact)
+      WHERE emergency_contact IS NOT NULL
+        AND emergency_contacts IS NULL
+    `);
+  } catch (e) { console.warn('Contact migration skipped:', e.message); }
   console.log('⚡ SQLite Database initialized successfully at:', dbPath);
 
 } catch (err) {

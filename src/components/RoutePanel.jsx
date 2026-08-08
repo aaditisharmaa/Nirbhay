@@ -218,9 +218,11 @@ export default function RoutePanel({ userLocation, onRouteCalculated, onClose })
                     {r.speedContext && <><span>•</span><span className="text-[10px]">{r.speedContext}</span></>}
                   </div>
                 </div>
-                <span className={`text-xs font-black px-2 py-1 rounded-lg ${r.avgPathRisk > 50 ? (isSelected ? 'bg-rose-500 text-white' : 'bg-rose-100 text-rose-800') : (isSelected ? 'bg-indigo-800 text-indigo-100' : 'bg-emerald-100 text-emerald-800')}`}>
-                  {r.avgPathRisk > 50 ? 'Passes Risk Zone' : 'Safe Path'}
-                </span>
+                {r.avgPathRisk > 50 && (
+                  <span className={`text-xs font-black px-2 py-1 rounded-lg ${isSelected ? 'bg-rose-500 text-white' : 'bg-rose-100 text-rose-800'}`}>
+                    ⚠ Passes Risk Zone
+                  </span>
+                )}
               </div>
             );
           })}
