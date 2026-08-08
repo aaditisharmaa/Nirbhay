@@ -31,7 +31,8 @@ import {
   Gauge,
   Target,
   Mic,
-  Siren
+  Siren,
+  Copy
 } from 'lucide-react';
 
 export {
@@ -66,7 +67,8 @@ export {
   Gauge,
   Target,
   Mic,
-  Siren
+  Siren,
+  Copy
 };
 
 // Custom Guardian Shield SVG Logo Icon

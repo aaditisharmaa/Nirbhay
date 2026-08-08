@@ -111,7 +111,7 @@ export default function SafetyToolsPanel({ userLocation, user, onSOSTriggered, o
                 <p className="text-xs text-slate-600 leading-relaxed mb-3">
                   Get your current GPS coordinates and share them via WhatsApp, SMS, or copy the link to clipboard.
                 </p>
-                <LiveLocationShare />
+                <LiveLocationShare userLocation={userLocation} />
               </div>
 
               {/* Fake Incoming Call */}
