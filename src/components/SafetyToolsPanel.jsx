@@ -66,6 +66,36 @@ export default function SafetyToolsPanel({ userLocation, user, onSOSTriggered, o
                 </p>
               </div>
 
+              {/* Tool 0: Call Police / Helpline — top of list, most critical */}
+              <div className="p-4 rounded-2xl shadow-sm" style={{background:'rgba(11,15,46,0.06)',border:'1px solid rgba(99,102,241,0.25)'}}>
+                <div className="mb-3">
+                  <h3 className="text-sm font-extrabold text-slate-900 mb-1">📞 Call Police / Helpline</h3>
+                  <p className="text-xs text-slate-500 leading-relaxed">
+                    Tap to open your phone's dialer. You confirm the call — nothing is dialled automatically.
+                  </p>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <a
+                    href="tel:112"
+                    className="flex flex-col items-center justify-center gap-1 py-3 px-2 rounded-2xl font-extrabold text-white text-xs text-center active:scale-95 transition-all"
+                    style={{background:'rgba(220,38,38,0.9)',border:'1px solid rgba(252,165,165,0.4)',boxShadow:'0 0 12px rgba(220,38,38,0.35)'}}
+                  >
+                    <span className="text-lg leading-none">🚔</span>
+                    <span>112</span>
+                    <span className="font-semibold text-red-100 text-[10px]">Police</span>
+                  </a>
+                  <a
+                    href="tel:1091"
+                    className="flex flex-col items-center justify-center gap-1 py-3 px-2 rounded-2xl font-extrabold text-white text-xs text-center active:scale-95 transition-all"
+                    style={{background:'rgba(139,92,246,0.9)',border:'1px solid rgba(196,181,253,0.4)',boxShadow:'0 0 12px rgba(139,92,246,0.35)'}}
+                  >
+                    <span className="text-lg leading-none">🆘</span>
+                    <span>1091</span>
+                    <span className="font-semibold text-violet-100 text-[10px]">Women Helpline</span>
+                  </a>
+                </div>
+              </div>
+
               {/* Tool 0: Guardian Mode — AI audio threat detection */}
               <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl shadow-sm">
                 <div className="mb-3">

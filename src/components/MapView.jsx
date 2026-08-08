@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useCallback } from 'react';
+import React, { useEffect, useRef, useCallback, useState } from 'react';
 import L from 'leaflet';
 import 'leaflet.heat';
 import { Plus, Compass } from './Icons';
@@ -86,6 +86,18 @@ function userDotHtml() {
   "></div>`;
 }
 
+// Police station flat badge — navy shield, no glow, no animation
+function policePinHtml(size = 22) {
+  return `<div style="
+    width:${size}px;height:${size}px;border-radius:4px;
+    background:rgba(30,58,138,0.92);
+    border:1.5px solid rgba(147,197,253,0.7);
+    display:flex;align-items:center;justify-content:center;
+    box-sizing:border-box;
+    filter:drop-shadow(0 2px 3px rgba(0,0,0,0.5));
+  "><span style="font-size:${Math.round(size*0.52)}px;line-height:1;">\uD83D\uDEA8</span></div>`;
+}
+
 export default function MapView({
   userLocation = {},
   zones = [],
@@ -102,6 +114,7 @@ export default function MapView({
   const leafletMapInstance   = useRef(null);
   const heatLayerRef         = useRef(null);
   const markersGroupRef      = useRef(null);
+  const policeGroupRef       = useRef(null);
   const routePolylineGroupRef = useRef(null);
   const debounceRef          = useRef(null);
   // Keep latest props available in map event callbacks without re-binding
@@ -109,11 +122,25 @@ export default function MapView({
   const selectedZoneRef      = useRef(selectedZone);
   const userLocationRef      = useRef(userLocation);
   const onSelectZoneRef      = useRef(onSelectZone);
+  const policeStationsRef    = useRef([]);
 
   useEffect(() => { zonesRef.current = zones; }, [zones]);
   useEffect(() => { selectedZoneRef.current = selectedZone; }, [selectedZone]);
   useEffect(() => { userLocationRef.current = userLocation; }, [userLocation]);
   useEffect(() => { onSelectZoneRef.current = onSelectZone; }, [onSelectZone]);
+
+  // Fetch police stations once on mount
+  useEffect(() => {
+    fetch('/api/map-features')
+      .then(r => r.json())
+      .then(data => {
+        if (data.success) {
+          policeStationsRef.current = data.policeStations ?? [];
+          renderVisibleMarkers();
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   const defaultCenter = [userLocation.lat || 28.6328, userLocation.lng || 77.2195];
 
@@ -124,8 +151,9 @@ export default function MapView({
     if (!map || !group) return;
 
     group.clearLayers();
+    if (policeGroupRef.current) policeGroupRef.current.clearLayers();
 
-    const bounds = map.getBounds().pad(0.15); // 15% padding beyond viewport
+    const bounds = map.getBounds().pad(0.15);
     const zones = zonesRef.current;
     const selectedZone = selectedZoneRef.current;
     const userLoc = userLocationRef.current;
@@ -143,7 +171,23 @@ export default function MapView({
         .bindTooltip('You are here', { permanent: false, direction: 'top', className: 'nirbhay-tooltip' });
     }
 
-    // Only render zones inside the padded viewport
+    // Police station markers — flat navy badge, viewport-culled
+    if (policeGroupRef.current) {
+      policeStationsRef.current.forEach(ps => {
+        if (!bounds.contains([ps.lat, ps.lng])) return;
+        const icon = L.divIcon({
+          className: '',
+          html: policePinHtml(22),
+          iconSize: [26, 26],
+          iconAnchor: [13, 13]
+        });
+        L.marker([ps.lat, ps.lng], { icon })
+          .addTo(policeGroupRef.current)
+          .bindTooltip('Police Station', { permanent: false, direction: 'top', className: 'nirbhay-tooltip' });
+      });
+    }
+
+    // Hazard zone markers
     zones.forEach(zone => {
       if (!bounds.contains([zone.lat, zone.lng])) return;
 
@@ -217,6 +261,7 @@ export default function MapView({
     L.control.zoom({ position: 'bottomright' }).addTo(map);
 
     markersGroupRef.current      = L.layerGroup().addTo(map);
+    policeGroupRef.current       = L.layerGroup().addTo(map);
     routePolylineGroupRef.current = L.layerGroup().addTo(map);
     leafletMapInstance.current   = map;
 

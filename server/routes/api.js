@@ -505,6 +505,19 @@ router.post('/seed', (req, res) => {
   }
 });
 
+// GET /api/map-features — returns police station locations for frontend rendering
+router.get('/map-features', (req, res) => {
+  try {
+    const policeStations = (cachedOsmFeatures.policeStations ?? []).map(p => ({
+      lat: p.lat,
+      lng: p.lng
+    }));
+    res.json({ success: true, policeStations });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // GET /api/stats - Public system counters
 router.get('/stats', (req, res) => {
   try {

@@ -134,6 +134,13 @@ export default function SosButton({ userLocation, user, onPromptEmergencyContact
                 <p className="text-xs text-slate-500 font-medium max-w-xs mx-auto">
                   Capturing live location telemetry & evaluating spatial risk factors…
                 </p>
+                <a
+                  href="tel:112"
+                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-white font-bold text-xs"
+                  style={{background:'rgba(220,38,38,0.9)',border:'1px solid rgba(252,165,165,0.4)'}}
+                >
+                  🚔 Call 112 — Police
+                </a>
               </div>
             ) : (
               <div className="space-y-4">
@@ -158,6 +165,14 @@ export default function SosButton({ userLocation, user, onPromptEmergencyContact
                     Nirbhay does not contact police automatically. If you are in immediate danger, call your local emergency number now.
                   </p>
                 </div>
+
+                <a
+                  href="tel:112"
+                  className="w-full py-3 flex items-center justify-center gap-2 rounded-xl font-bold text-xs text-white transition-all"
+                  style={{background:'rgba(220,38,38,0.9)',border:'1px solid rgba(252,165,165,0.35)'}}
+                >
+                  🚔 Call 112 — Police Emergency
+                </a>
 
                 <button
                   onClick={() => setActiveState('idle')}

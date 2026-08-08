@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import L from 'leaflet';
 import { Lock, MapPin, AlertTriangle, X, Search, Compass } from './Icons';
 import { authenticatedHeaders } from '../utils/api';
+import { useNominatimAutocomplete } from '../utils/useNominatimAutocomplete';
 
 export default function ReportModal({ userLocation = {}, user, onClose, onReportSubmitted }) {
   const initialLat = userLocation.lat || 28.6328;
@@ -14,6 +15,8 @@ export default function ReportModal({ userLocation = {}, user, onClose, onReport
   const [description, setDescription] = useState('');
   const [loading, setLoading] = useState(false);
   const [geocoding, setGeocoding] = useState(false);
+  const [acOpen, setAcOpen] = useState(false);
+  const { suggestions: acSuggestions, loading: acLoading, search: acSearch, clear: acClear } = useNominatimAutocomplete(userLocation);
   const [error, setError] = useState(null);
 
   const miniMapRef = useRef(null);
@@ -234,23 +237,51 @@ export default function ReportModal({ userLocation = {}, user, onClose, onReport
             <span>Use My Current GPS Location</span>
           </button>
 
-          {/* Location Search Bar */}
+          {/* Location Search Bar with autocomplete */}
           <div className="relative">
             <input
               type="text"
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search specific landmark or address..."
-              className="w-full pl-3 pr-20 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                acSearch(e.target.value);
+                setAcOpen(true);
+              }}
+              onFocus={() => searchQuery.length >= 3 && setAcOpen(true)}
+              onBlur={() => setTimeout(() => setAcOpen(false), 150)}
+              placeholder="Search landmark or address…"
+              className="w-full pl-3 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              autoComplete="off"
             />
-            <button
-              type="button"
-              onClick={handleSearchAddress}
-              disabled={geocoding || !searchQuery}
-              className="absolute right-1 top-1 bottom-1 px-3 bg-[#0B0F2E] hover:bg-indigo-950 text-white text-[11px] font-bold rounded-lg transition-all"
-            >
-              {geocoding ? 'Finding...' : 'Set Pin'}
-            </button>
+            {acOpen && (acLoading || acSuggestions.length > 0) && (
+              <div className="absolute z-50 top-full mt-1 left-0 right-0 rounded-xl overflow-hidden shadow-xl"
+                style={{background:'rgba(11,15,46,0.97)',border:'1px solid rgba(99,102,241,0.4)'}}>
+                {acLoading && (
+                  <div className="px-3 py-2 text-[11px] text-indigo-300 flex items-center gap-2">
+                    <span className="w-3 h-3 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin"/>Searching…
+                  </div>
+                )}
+                {!acLoading && acSuggestions.map((s, i) => (
+                  <button key={i} type="button"
+                    onMouseDown={() => {
+                      setSearchQuery(s.shortLabel);
+                      setSelectedLocation({ lat: s.lat, lng: s.lng });
+                      setAddressLabel(s.shortLabel);
+                      if (leafletMiniMap.current && markerRef.current) {
+                        leafletMiniMap.current.setView([s.lat, s.lng], 16);
+                        markerRef.current.setLatLng([s.lat, s.lng]);
+                      }
+                      acClear();
+                      setAcOpen(false);
+                    }}
+                    className="w-full text-left px-3 py-2 text-[11px] text-slate-200 hover:bg-indigo-800/60 transition-colors border-b border-white/5 last:border-0"
+                  >
+                    <span className="font-semibold text-white block truncate">{s.shortLabel}</span>
+                    <span className="text-slate-400 text-[10px] truncate block">{s.label}</span>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Interactive Mini Map Pin Dropper */}
